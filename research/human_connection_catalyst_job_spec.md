@@ -1,124 +1,119 @@
-# Job Specification: Human Connection Catalyst
-**Role Type:** Co-Founder / Chief Community Officer  
-**Location:** Remote-first with monthly community events and conferences  
-**Compensation:** Community growth milestone bonuses + equity + token allocation  
-**Start Date:** Immediate (Phase 1 community validation support)
+# Role Guidelines: Human Connection Catalyst
 
-## Position Overview
-Build and nurture StreamrP2P's multi-community ecosystem across gaming, streaming, and crypto audiences while establishing partnerships that create mutual value and reinforce our principles of open communication and user empowerment.
+## Role Authority & Scope
+**Primary Mandate:** Build and nurture multi-community ecosystem across gaming, streaming, and crypto audiences while establishing partnerships that create mutual value and reinforce open communication and user empowerment principles.
 
-## SMART Requirements
+**Decision Authority:** Final approval on all community strategy, partnership agreements, creator relations, and cross-platform integration decisions.
 
-### Community Building Track Record
-- **Demonstrate building communities** from 0 to 25,000+ active members within 18 months in at least 2 previous roles
-- **Show measurable engagement metrics** with 70%+ monthly active user retention and 5+ daily interactions per community member
-- **Provide evidence** of cross-community bridge building connecting 3+ distinct audiences (gaming, streaming, crypto, tech)
-- **Document community monetization success** enabling $500-5,000+ monthly earnings for top community contributors
+## Performance Standards & Metrics
+
+### Community Growth Excellence Standards
+- **Build engaged communities** from 0 to 50,000+ active members across all platforms
+- **Maintain 70%+ monthly active user retention** with 5+ daily interactions per member
+- **Achieve 90%+ authentic engagement rate** vs bot or artificial engagement
+- **Generate 100+ organic community content pieces** monthly (testimonials, tutorials, success stories)
+
+### Creator Economy Expansion Performance
+- **Recruit 500+ content creators** from traditional platforms within 12 months
+- **Achieve 85%+ creator satisfaction** with higher earnings than previous platforms
+- **Maintain 95%+ issue resolution rate** within 24 hours for creator support
+- **Build creator education pipeline** with 1,000+ earnings optimization completions annually
 
 ### Gaming Ecosystem Integration
-- **Establish partnerships** with 20+ gaming hardware manufacturers, gaming platforms, or esports organizations within 12 months
-- **Build relationships** with 100+ gaming content creators with 10,000+ followers each within 18 months
-- **Achieve integration** with 5+ major gaming platforms or hardware monitoring tools within 24 months
-- **Generate gaming community adoption** of 10,000+ gamers contributing idle hardware within first year
+- **Establish partnerships** with 20+ gaming hardware manufacturers or platforms
+- **Build relationships** with 100+ gaming content creators (10,000+ followers each)
+- **Achieve integration** with 5+ major gaming platforms or hardware monitoring tools
+- **Generate gaming community adoption** of 10,000+ gamers contributing idle hardware
 
-### Creator Economy Expansion
-- **Recruit 500+ content creators** from traditional platforms (Twitch, YouTube, TikTok) within 12 months of platform launch
-- **Achieve creator satisfaction** with 85%+ reporting higher earnings than previous platforms within 6 months of migration
-- **Establish creator support program** with 95%+ issue resolution rate within 24 hours
-- **Build creator education pipeline** with 1,000+ creators completing earnings optimization training within first year
+### Cross-Platform Partnership Development
+- **Negotiate strategic partnerships** with 10+ complementary platforms enabling token interoperability
+- **Establish creator exchange programs** with 5+ existing streaming platforms
+- **Create interoperability agreements** for StreamrP2P integration with creator tools
+- **Build developer ecosystem** with 50+ third-party integrations or tools
 
-### Cross-Community Partnership Development
-- **Negotiate strategic partnerships** with 10+ complementary platforms enabling cross-platform token use within 18 months
-- **Establish content creator exchange programs** with 5+ existing streaming platforms within 12 months
-- **Create interoperability agreements** allowing StreamrP2P integration with existing creator tools and audiences
-- **Build developer ecosystem** with 50+ third-party integrations or tools within 24 months
+## Decision-Making Framework
 
-### Authentic Engagement Metrics
-- **Maintain 90%+ authentic engagement rate** (vs bot or paid engagement) across all community channels
-- **Achieve 4.5+ star community satisfaction** rating through quarterly anonymous surveys
-- **Generate 100+ organic community-driven content pieces** monthly (testimonials, tutorials, success stories)
-- **Maintain <5% community churn** monthly while growing total community size
+### Community & Partnership Decisions
+**Authority Level:** Final Decision Maker
+- Community growth strategies and platform policies
+- Partnership terms and cross-platform collaboration agreements
+- Creator onboarding programs and support structures
+- International expansion strategies and regional adaptation
 
-### Cultural Bridge Building
-- **Build regional community presence** in 8+ countries with local community managers within 18 months
-- **Establish multilingual support** in 5+ languages with native community representatives
-- **Create cultural adaptation programs** ensuring platform works for different regulatory and cultural contexts
-- **Achieve 60%+ international user adoption** (non-US) within first year of global launch
+### Cross-Role Collaboration Requirements
+**With Decentralized Infrastructure Visionary:**
+- Ensure technical solutions work across global communities and diverse devices
+- Support creator tools and community platform technical integrations
+- Maintain open communication protocols and platform interoperability
 
-### Movement Building & Advocacy
-- **Organize 12+ community events** annually (virtual/physical) with 500+ attendees each
-- **Generate mainstream media coverage** with 50+ positive articles/features about StreamrP2P's community impact
-- **Build advocacy network** of 1,000+ community members actively promoting platform principles
-- **Create educational content** reaching 100,000+ people monthly about decentralized streaming benefits
+**With Economic Justice Architect:**
+- Align economic incentives with community growth and creator satisfaction
+- Design community education programs for economic literacy and adoption
+- Validate reward systems enhance rather than manipulate community dynamics
 
-### Open Source Community Development
-- **Build developer community** contributing to StreamrP2P open source components with 100+ monthly contributors
-- **Organize hackathons** and developer events with 500+ participants annually
-- **Maintain GitHub community** with 2,000+ stars and active issue/PR engagement
-- **Create technical community** of protocol developers and integrators across 10+ projects
+## Career Progression Milestones
 
-## Required Experience Validation
-**Candidates must provide:**
-- **Community growth case studies** with documented metrics from previous roles
-- **Partnership examples** showing successful cross-community collaboration and mutual value creation
-- **Creator testimonials** from previous platforms or communities they've built
-- **3 references** from different community types (gaming, streaming, crypto) who can validate relationship-building success
+### Year 1 Excellence Indicators
+- Community growth to 50,000+ engaged members across multiple platforms
+- Creator recruitment success with 1,000+ active creators generating meaningful income
+- Partnership ecosystem with 25+ strategic integrations providing user value
+- International expansion with active communities in 5+ countries
 
-### Specific Platform Experience
-- **Gaming Community Leadership**: 3+ years building gaming communities with demonstrable creator recruitment success
-- **Streaming Ecosystem Knowledge**: 2+ years working with content creators on monetization and audience growth
-- **Crypto Community Building**: 2+ years in crypto/Web3 community development with token-based incentive experience
+### Year 2+ Advanced Leadership
+- Industry recognition as leading voice in decentralized streaming and creator empowerment
+- Global community presence across 10+ regions with local management
+- Strategic advisory roles with other creator economy and community platforms
+- Thought leadership in community-driven platform governance and economics
 
-## Success Criteria (First 12 Months)
-- **Community size growth** from 0 to 50,000+ engaged community members across all platforms
-- **Creator recruitment** success with 1,000+ active creators generating meaningful income
-- **Partnership ecosystem** with 25+ strategic integrations providing user value
-- **Brand recognition** as leading voice in decentralized streaming and creator empowerment
-- **International expansion** with active communities in 5+ countries
+### Continuous Development Areas
+- Cross-cultural community building and international expansion
+- Creator psychology and sustainable monetization understanding
+- Gaming industry relationships and partnership development
+- Community governance and decentralized decision-making systems
+
+## Performance Review Standards
+
+### Quarterly Assessment Criteria
+- **Community Metrics:** Growth rate, engagement quality, retention, satisfaction scores
+- **Creator Success:** Recruitment numbers, earning improvements, support satisfaction
+- **Partnership Value:** Integration success, mutual benefit generation, relationship quality
+- **Cultural Impact:** International expansion, community diversity, cultural adaptation
+
+### Annual Strategic Review
+- **Movement Building:** Industry influence, advocacy network growth, mainstream recognition
+- **Global Expansion:** Regional community success, cultural bridge building
+- **Creator Economy Impact:** Platform migration success, earnings improvement documentation
+- **Partnership Ecosystem:** Strategic value creation, platform interoperability advancement
 
 ### Measurable Community Outcomes
-- **Community-driven growth** with 60%+ new users coming from community referrals
-- **Creator success stories** with 100+ documented cases of earnings improvement vs previous platforms
-- **Partnership value** generating $500,000+ in mutual business value within first year
-- **Event impact** with 5,000+ annual event attendees and 85%+ satisfaction ratings
+- Community-driven growth with 60%+ new users from community referrals
+- Creator success stories with 100+ documented earnings improvements vs previous platforms
+- Partnership value generating $500,000+ mutual business value annually
+- Event impact with 5,000+ annual attendees and 85%+ satisfaction ratings
 
-## Red Flags (Automatic Disqualification)
-- **History of artificial community growth** through paid engagement or bot networks
-- **Experience primarily with extractive** community models focused on user exploitation
-- **Cannot demonstrate authentic relationships** with gaming, streaming, or crypto communities
-- **Uncomfortable with transparent** compensation tied to community success metrics
-- **No evidence of successful cross-community** bridge building or cultural translation
+## Cultural Bridge Building Responsibilities
+- **Build regional community presence** in 8+ countries with local community managers
+- **Establish multilingual support** in 5+ languages with native representatives
+- **Create cultural adaptation programs** ensuring platform works across regulatory contexts
+- **Achieve 60%+ international user adoption** (non-US) within first operational year
 
-## Specialized Competencies
-### Gaming Industry Integration
-- **Hardware partnership experience** with GPU manufacturers, gaming PC builders, or peripheral companies
-- **Esports relationship network** with teams, tournaments, or gaming influencer management
-- **Gaming culture fluency** across PC gaming, console gaming, mobile gaming, and competitive esports
+## Movement Building & Advocacy
+- **Organize 12+ community events** annually (virtual/physical) with 500+ attendees each
+- **Generate mainstream media coverage** with 50+ positive articles about community impact
+- **Build advocacy network** of 1,000+ members actively promoting platform principles
+- **Create educational content** reaching 100,000+ people monthly about decentralized benefits
 
-### Creator Economy Expertise
-- **Platform migration experience** helping creators transition between platforms while maintaining audiences
-- **Creator tool ecosystem knowledge** of streaming software, content creation tools, and monetization platforms
-- **Creator psychology understanding** of sustainable income generation and community building
+## Open Source Community Development
+- **Build developer community** contributing to StreamrP2P components with 100+ monthly contributors
+- **Organize hackathons** and developer events with 500+ participants annually
+- **Maintain GitHub community** with 2,000+ stars and active engagement
+- **Create technical community** of protocol developers across 10+ projects
 
-### Crypto Community Navigation
-- **DeFi community experience** with token-based communities and governance participation
-- **Web3 onboarding expertise** helping traditional users adopt crypto tools and concepts
-- **Privacy advocacy knowledge** of crypto privacy tools and user sovereignty principles
-
-## Interview Process
-1. **Community Building Case Study** (2 hours): Present strategy for building StreamrP2P's multi-community ecosystem
-2. **Partnership Negotiation Simulation** (2 hours): Negotiate hypothetical gaming platform integration
-3. **Creator Onboarding Workshop** (1 hour): Design creator migration and success program
-4. **Cross-Community Translation Exercise** (1 hour): Explain StreamrP2P benefits to different audience types
-5. **Crisis Management Scenario** (1 hour): Handle hypothetical community conflict or partnership dispute
-6. **Network Validation** (1 week): Validate relationships and references across gaming, streaming, and crypto communities
-
-## Performance Incentives
-### Milestone-Based Bonuses
-- **Community Growth**: $10,000 bonus for each 10,000 engaged community member milestone
-- **Creator Success**: $5,000 bonus for each 100 creators earning $500+ monthly
-- **Partnership Impact**: $15,000 bonus for each strategic partnership generating $100,000+ mutual value
-- **International Expansion**: $25,000 bonus for successful community launch in new region
+## Authentic Engagement Maintenance
+- **Maintain <5% community churn** monthly while growing total size
+- **Achieve 4.5+ star community satisfaction** through quarterly anonymous surveys
+- **Build long-term community relationships** prioritizing authentic value over growth metrics
+- **Create community-driven content** and governance structures
 
 ---
-*This role is designed for someone who sees community building as a tool for human empowerment and believes that authentic relationships create more value than marketing campaigns.* 
+*Community building in service of human connection, economic empowerment, and communication freedom.* 

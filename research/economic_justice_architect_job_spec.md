@@ -1,100 +1,107 @@
-# Job Specification: Economic Justice Architect
-**Role Type:** Co-Founder / Chief Economic Officer  
-**Location:** Remote-first with monthly tokenomics review sessions  
-**Compensation:** Token allocation + equity with economic milestone bonuses  
-**Start Date:** Immediate (Phase 1 economic modeling support)
+# Role Guidelines: Economic Justice Architect
 
-## Position Overview
-Design and implement StreamrP2P's tokenomics and economic incentive structures that enable sustainable earning opportunities for all participants while maintaining privacy, security, and long-term value creation.
+## Role Authority & Scope
+**Primary Mandate:** Design and implement sustainable tokenomics and economic incentive structures enabling earning opportunities for all participants while maintaining privacy, security, and long-term value creation.
 
-## SMART Requirements
+**Decision Authority:** Final approval on all token economics, reward mechanisms, financial compliance strategies, and economic partnership decisions.
 
-### Tokenomics Design Expertise
-- **Demonstrate experience designing** token economics for projects achieving $10M+ total value locked (TVL) or transaction volume within 18 months
-- **Provide case studies** of 3+ economic models that maintained token value appreciation over 24+ month periods without major devaluation events
-- **Show documented expertise** in anti-Sybil mechanisms preventing bot attacks in systems with 50,000+ participants
-- **Present track record** of designing reward mechanisms generating $50-500 monthly income for active participants
+## Performance Standards & Metrics
+
+### Economic Model Excellence Standards
+- **Maintain token price stability** with <30% monthly volatility during operational periods
+- **Generate creator earnings** of $500-5,000 monthly for top 20% of creators
+- **Sustain viewer rewards** averaging $100+ monthly for active participants
+- **Achieve economic self-sustainability** without external funding dependency
+
+### Anti-Gaming & Security Performance
+- **Prevent coordinated attacks** from capturing >5% of total rewards through Sybil resistance
+- **Maintain <1% false positive rate** in anti-gaming detection systems
+- **Design economic penalties** making attacks cost 10x more than honest participation
+- **Conduct quarterly red-team testing** validating economic security measures
 
 ### Privacy-First Economics Implementation
-- **Design zero-knowledge payment flows** that protect user financial privacy while enabling reward distribution within 60 days of hire
-- **Implement privacy-preserving analytics** tracking economic health without exposing individual user financial data within 90 days
-- **Create regulatory-compliant token structures** avoiding securities classification across 3+ major jurisdictions (US, EU, Asia) within 120 days
+- **Implement zero-knowledge payment flows** protecting user financial privacy
+- **Maintain privacy-preserving analytics** tracking economic health without exposing individual data
+- **Ensure regulatory compliance** across 3+ major jurisdictions while preserving privacy
+- **Design pseudonymous reward systems** with optional privacy enhancements
 
-### Sustainable Economic Model Metrics
-- **Achieve 12+ month token price stability** with <30% monthly volatility during first year post-launch
-- **Maintain positive creator earnings** of $500-5,000 monthly for top 20% of creators within 6 months of platform launch
-- **Generate viewer reward sustainability** averaging $100+ monthly for active participants without external funding dependency by month 12
+### Platform Economic Impact
+- **Achieve 12+ month economic model sustainability** with growing user earning capacity
+- **Increase user engagement by 200%** through reward mechanism optimization
+- **Generate network effects** where each new user adds $5-50 value for existing participants
+- **Maintain 80%+ user retention** month-over-month through economic incentive design
 
-### Anti-Gaming & Security Measures
-- **Implement Sybil resistance mechanisms** preventing >5% of rewards going to coordinated attacks, validated through red-team testing quarterly
-- **Design economic penalties** that make platform gaming attacks cost 10x more than honest participation
-- **Maintain <1% false positive rate** in anti-gaming detection while catching >95% of coordinated manipulation attempts
+## Decision-Making Framework
 
-### Behavioral Economics Optimization
-- **Increase user engagement by 200%** through reward mechanism optimization within first 6 months of implementation
-- **Achieve 80%+ user retention** month-over-month through economic incentive design
-- **Generate network effects** where each new user increases platform value by measurable $5-50 for existing participants
+### Economic Architecture Decisions
+**Authority Level:** Final Decision Maker
+- Token economics design and reward distribution mechanisms
+- Anti-gaming strategies and economic security measures
+- Financial compliance structures and regulatory navigation
+- Economic partnership terms and cross-platform integrations
 
-### Regulatory Compliance & Legal Structure
-- **Obtain legal opinions** from securities lawyers in 3+ jurisdictions confirming utility token classification within 90 days
-- **Implement tax-compliant reporting** systems for user earnings across major tax jurisdictions within 6 months
-- **Maintain 100% compliance** with KYC/AML requirements while preserving maximum user privacy through privacy-preserving solutions
+### Cross-Role Collaboration Requirements
+**With Decentralized Infrastructure Visionary:**
+- Ensure economic mechanisms are technically feasible and performant
+- Design token flows that don't compromise system scalability
+- Validate privacy-preserving payment implementations
 
-### Community Economic Education
-- **Publish 1+ educational content piece** weekly explaining tokenomics in accessible language for mainstream adoption
-- **Conduct 2+ AMAs monthly** with community addressing economic questions and transparency concerns
-- **Achieve 85%+ community satisfaction** with economic transparency and communication through quarterly surveys
+**With Human Connection Catalyst:**
+- Align economic incentives with community growth and creator satisfaction
+- Design reward systems that enhance rather than manipulate community dynamics
+- Create economic education programs for mainstream adoption
 
-### Cross-Platform Economic Integration
-- **Design interoperability protocols** enabling token use across 5+ external platforms within 12 months
-- **Establish economic partnerships** with 10+ complementary platforms for mutual user benefit within 18 months
-- **Create cross-chain compatibility** supporting 3+ major blockchains (Ethereum, Arbitrum, Polygon) within 8 months
+## Career Progression Milestones
 
-## Required Experience Validation
-**Candidates must provide:**
-- **Live tokenomics model** from previous project with 12+ months of performance data
-- **Economic attack scenarios** they've designed defenses against with documented success rates
-- **User earning reports** showing sustainable income generation for participants in previous projects
-- **3 references** from previous projects who can validate economic design and implementation success
+### Year 1 Excellence Indicators
+- Economic model sustainability with self-sustaining reward generation
+- Token ecosystem health with growing utility demand and stable value
+- Regulatory compliance confirmed across target markets
+- Community economic satisfaction with 80%+ earning projected amounts
 
-## Success Criteria (First 12 Months)
-- **Economic model sustainability** with self-sustaining reward generation without external subsidy
-- **User economic satisfaction** with 80%+ of participants earning projected monthly amounts
-- **Token ecosystem health** with growing utility demand and stable value appreciation
-- **Regulatory safety** with confirmed legal compliance across target markets
-- **Community economic education** with high engagement and understanding metrics
+### Year 2+ Advanced Leadership
+- Industry recognition as pioneer in sustainable creator economy design
+- Economic model replication and licensing to other platforms
+- Advanced privacy-preserving economic research and implementation
+- Global economic policy influence and regulatory framework development
+
+### Continuous Development Areas
+- Behavioral economics and incentive psychology advancement
+- Privacy-preserving financial technology innovation
+- Cross-chain economic interoperability and composability
+- Creator economy research and sustainable monetization models
+
+## Performance Review Standards
+
+### Quarterly Assessment Criteria
+- **Economic Metrics:** Token stability, user earnings, reward sustainability, growth rates
+- **Security Performance:** Attack prevention, false positive rates, economic robustness
+- **Privacy Protection:** Financial data security, regulatory compliance, user sovereignty
+- **Community Impact:** Economic education, transparency, user satisfaction
+
+### Annual Strategic Review
+- **Economic Innovation:** New mechanism development and competitive differentiation
+- **Market Leadership:** Economic model influence and industry recognition
+- **Regulatory Evolution:** Compliance strategy adaptation and policy influence
+- **Community Empowerment:** User financial sovereignty and earning capacity growth
 
 ### Measurable Economic Outcomes
-- **Creator earnings growth** from $0 to $10M+ total payouts within 12 months
-- **Viewer reward distribution** of $1M+ total earned by community within 12 months  
-- **Token velocity optimization** maintaining healthy circulation without inflationary pressure
-- **Platform revenue sustainability** covering operational costs through token economics within 18 months
+- Creator earnings growth from $0 to $10M+ total payouts annually
+- Viewer reward distribution of $1M+ total earned by community annually
+- Token velocity optimization maintaining healthy circulation
+- Platform revenue sustainability covering operational costs through token economics
 
-## Red Flags (Automatic Disqualification)
-- **No experience with tokens** that maintained value >12 months without major crashes
-- **History with projects** that had major economic exploits or Sybil attacks
-- **Cannot demonstrate** privacy-preserving payment system design experience
-- **Unwilling to take token-based compensation** tied to economic model success
-- **No understanding** of creator economy dynamics and sustainable monetization
+## Community Economic Education Responsibilities
+- **Publish weekly educational content** explaining tokenomics in accessible language
+- **Conduct bi-monthly AMAs** addressing economic questions and transparency
+- **Achieve 85%+ community satisfaction** with economic transparency through surveys
+- **Create economic literacy programs** for mainstream user onboarding
 
-## Specialized Requirements
-### Creator Economy Understanding
-- **Document 2+ years experience** with creator monetization platforms (OnlyFans, Patreon, YouTube, Twitch)
-- **Show measurable improvements** in creator earnings through economic design in previous roles
-- **Demonstrate understanding** of creator psychology and sustainable income generation models
-
-### Gaming Economy Integration
-- **Present experience** with gaming tokenomics or virtual economy design
-- **Show knowledge** of idle resource monetization and gaming hardware economics
-- **Understand gaming community** behavior and reward psychology
-
-## Interview Process
-1. **Economic Model Presentation** (3 hours): Present comprehensive tokenomics design for StreamrP2P
-2. **Attack Vector Analysis** (2 hours): Identify and design defenses against economic manipulation
-3. **Privacy Economics Workshop** (2 hours): Design privacy-preserving reward distribution system
-4. **Creator Economy Case Study** (1 hour): Analyze and optimize creator earning potential scenarios
-5. **Community Engagement Simulation** (1 hour): Handle difficult economic questions from simulated community members
-6. **Reference Deep Dive** (1 week): Validate economic outcomes from previous projects
+## Cross-Platform Economic Integration
+- **Design interoperability protocols** enabling token use across 5+ external platforms
+- **Establish economic partnerships** with 10+ complementary platforms for mutual benefit
+- **Create cross-chain compatibility** supporting 3+ major blockchains
+- **Build economic API frameworks** for third-party developer integration
 
 ---
-*This role is designed for someone who believes that properly designed economics can create abundance and opportunity for all participants while maintaining privacy and security.* 
+*Economic design in service of sustainable prosperity and financial sovereignty for all participants.* 
