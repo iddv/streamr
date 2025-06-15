@@ -21,6 +21,20 @@ This MCP server provides access to three specialized AI agent personas that can 
 - **Expertise**: Community building, cultural adaptation, partnership development, user education
 - **Use For**: Community strategy, partnership decisions, cultural adaptation, user onboarding
 
+## 📊 Current Status
+
+**Project Phase**: Phase 1 - Product Definition & Strategy (Extended)  
+**Progress**: 25% Complete - Foundation & AI System Operational  
+**Status**: 🟢 On Track
+
+👉 **[View Detailed Status & Next Steps](CURRENT_STATUS.md)**
+
+### Recent Achievements
+- ✅ Technical feasibility validated with 3 innovation opportunities
+- ✅ AI advisor consultation system operational
+- ✅ Comprehensive research documentation completed
+- 🔄 Market analysis in progress using AI advisors
+
 ## 🚀 Quick Start
 
 ### Installation
@@ -190,6 +204,27 @@ MIT License - See LICENSE file for details.
 3. Make your changes
 4. Add tests if applicable
 5. Submit a pull request
+
+## 📚 Documentation Index
+
+### Project Management
+- **[Current Status & Next Steps](CURRENT_STATUS.md)** - Comprehensive status overview and immediate action items
+- **[Project Tracker](research/project_tracker.md)** - Detailed phase tracking and milestone management
+- **[AI Agent Usage Guide](research/ai_agent_usage_guide.md)** - How to use the AI advisor consultation system
+
+### Product Research
+- **[PRFAQ](research/prfaq.md)** - Product vision and frequently asked questions
+- **[Feasibility Analysis](research/compass_artifact_wf-023ffc89-1689-4915-9001-b456dd0430c8_text_markdown.md)** - Technical validation and innovation opportunities
+- **[Product Development Plan](research/product_development_plan.md)** - Comprehensive development strategy
+
+### AI Advisor Personas
+- **[Decentralized Infrastructure Visionary](research/decentralized_infrastructure_visionary_job_spec.md)** - CTO perspective
+- **[Economic Justice Architect](research/economic_justice_architect_job_spec.md)** - Tokenomics perspective  
+- **[Human Connection Catalyst](research/human_connection_catalyst_job_spec.md)** - Community perspective
+
+### Technical Implementation
+- **[MCP Server Documentation](mcp-server/README.md)** - AI advisor server setup and usage
+- **[MCP Server Code](mcp-server/streamr_advisors_server.py)** - FastMCP implementation
 
 ## 🙏 Acknowledgments
 
