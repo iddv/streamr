@@ -13,6 +13,12 @@ StreamrP2P is a revolutionary mobile-first peer-to-peer streaming platform that 
 - `project_tracker.md` - Live tracking of progress, milestones, and deliverables
 - `prfaq.md` - Press Release & FAQ (Amazon Working Backwards methodology)
 
+### AI Agent Role Guidelines
+- `ai_agent_usage_guide.md` - Complete guide for using the AI agent roleplay consultation system
+- `decentralized_infrastructure_visionary_job_spec.md` - AI agent persona for technical architecture consultation
+- `economic_justice_architect_job_spec.md` - AI agent persona for tokenomics and creator economy consultation
+- `human_connection_catalyst_job_spec.md` - AI agent persona for community building and partnership consultation
+
 ### Existing Research
 - `compass_artifact_wf-023ffc89-1689-4915-9001-b456dd0430c8_text_markdown.md` - Comprehensive feasibility analysis
 - `analysis_of_feasibility.md` - Analysis of the feasibility research

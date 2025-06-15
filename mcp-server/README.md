@@ -26,28 +26,24 @@ This MCP server provides access to three specialized AI agent personas that can 
 ### Installation
 
 ```bash
-# Clone the repository
-git clone https://github.com/iddv/streamr-ai-advisors-mcp.git
-cd streamr-ai-advisors-mcp
-
-# Install dependencies
+# Install FastMCP
 pip install fastmcp
 
-# Or with poetry
-poetry install
+# Or install all dependencies
+pip install -r requirements.txt
 ```
 
 ### Running the Server
 
 ```bash
 # Development mode (stdio transport)
-python streamr_advisors_server.py
+python3 streamr_advisors_server.py
 
 # HTTP server mode
-python streamr_advisors_server.py --transport http --port 8000
+python3 streamr_advisors_server.py --transport http --port 8000
 
 # Custom output directory
-python streamr_advisors_server.py --output-dir ./my_consultations
+python3 streamr_advisors_server.py --output-dir ../consultations
 ```
 
 ## 🛠️ Available Tools
@@ -57,6 +53,7 @@ python streamr_advisors_server.py --output-dir ./my_consultations
 - `ask_infrastructure_visionary(question, save_to_file=True)` - Technical architecture consultation
 - `ask_economic_architect(question, save_to_file=True)` - Tokenomics and economic justice consultation  
 - `ask_community_catalyst(question, save_to_file=True)` - Community building and partnership consultation
+- `ask_all_advisors(question, save_to_file=True)` - Get all three perspectives on complex decisions
 
 ### Utility Tools
 
@@ -67,6 +64,7 @@ python streamr_advisors_server.py --output-dir ./my_consultations
 
 - `advisor://personas` - Detailed information about all AI personas
 - `advisor://outputs` - List of recent consultation outputs
+- `advisor://research` - StreamrP2P project context from research folder
 
 ## 📝 Usage Examples
 
@@ -91,6 +89,14 @@ result = ask_economic_architect(
 # Ask about international expansion
 result = ask_community_catalyst(
     "How should we approach international expansion while respecting local communities?"
+)
+```
+
+### Multi-Perspective Analysis
+```python
+# Get all three perspectives on a complex decision
+result = ask_all_advisors(
+    "Should we implement a micro-payment system for premium content?"
 )
 ```
 
@@ -126,8 +132,8 @@ Add to your Claude Desktop configuration:
 {
   "mcpServers": {
     "streamr-advisors": {
-      "command": "python",
-      "args": ["/path/to/streamr_advisors_server.py"],
+      "command": "python3",
+      "args": ["/path/to/streamr/mcp-server/streamr_advisors_server.py"],
       "env": {
         "STREAMR_OUTPUT_DIR": "/path/to/your/consultations"
       }
@@ -136,66 +142,79 @@ Add to your Claude Desktop configuration:
 }
 ```
 
-## 🧪 Development
+## 🧪 Development & Testing
 
 ### Testing the Server
 
 ```bash
-# Test with MCP inspector
+# Test with MCP inspector (if available)
 mcp dev streamr_advisors_server.py
 
 # Test HTTP mode
-python streamr_advisors_server.py --transport http --port 8000
+python3 streamr_advisors_server.py --transport http --port 8000
 curl http://localhost:8000/tools
 ```
 
-### Code Quality
+### Integration with Research
 
-```bash
-# Format code
-black .
-isort .
+This MCP server is designed to work with the StreamrP2P research documentation in the `../research/` folder:
 
-# Lint
-ruff check .
+- **Persona Guidelines**: Full AI agent specifications in `*_job_spec.md` files
+- **Project Context**: PRFAQ, project tracker, and feasibility analysis
+- **Usage Guide**: Complete instructions in `ai_agent_usage_guide.md`
 
-# Type checking
-mypy .
-```
+## 🔮 Production Integration
+
+**Current Status**: This is a template implementation that returns structured template responses.
+
+**For Production Use**:
+
+1. **Integrate with LLM APIs**:
+   ```python
+   # Replace generate_ai_response() with actual LLM calls
+   import openai  # or anthropic for Claude
+   
+   def generate_ai_response(persona_key: str, question: str) -> str:
+       persona = PERSONAS[persona_key]
+       response = openai.ChatCompletion.create(
+           model="gpt-4",
+           messages=[
+               {"role": "system", "content": persona["persona_prompt"]},
+               {"role": "user", "content": question}
+           ]
+       )
+       return response.choices[0].message.content
+   ```
+
+2. **Load Full Persona Guidelines**:
+   ```python
+   # Load complete persona specifications from research folder
+   def load_persona_from_research(persona_key: str) -> str:
+       with open(f"../research/{persona_key}_job_spec.md", "r") as f:
+           return f.read()
+   ```
+
+3. **Add Conversation Memory**:
+   - Track consultation history
+   - Maintain context across questions
+   - Reference previous decisions
 
 ## 🏗️ Architecture
 
 The server is built using [FastMCP](https://github.com/jlowin/fastmcp) and provides:
 
 - **Tools**: Direct consultation functions for each AI persona
-- **Resources**: Access to persona definitions and consultation history
+- **Resources**: Access to persona definitions, consultation history, and research context
 - **File Output**: Automatic saving of responses to markdown files
 - **Flexible Transport**: Support for both stdio and HTTP protocols
 
-## 🔮 Future Enhancements
-
-- **LLM Integration**: Connect to actual LLM APIs (Claude, OpenAI) for dynamic responses
-- **Conversation Memory**: Track consultation history and context
-- **Multi-Agent Collaboration**: Tools for consulting multiple personas on complex decisions
-- **Response Templates**: Customizable output formats for different use cases
-
 ## 📄 License
 
-MIT License - See LICENSE file for details.
+MIT License - Part of the StreamrP2P project ecosystem.
 
 ## 🤝 Contributing
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
-
-## 🙏 Acknowledgments
-
-- Built with [FastMCP](https://github.com/jlowin/fastmcp) by Jeremiah Lowin
-- Inspired by the [Model Context Protocol](https://modelcontextprotocol.io/) by Anthropic
-- Part of the StreamrP2P project ecosystem
+This MCP server is part of the larger StreamrP2P project. See the main project README and research documentation for contribution guidelines.
 
 ---
 
