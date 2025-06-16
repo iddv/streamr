@@ -30,6 +30,36 @@ fi
 
 echo -e "${GREEN}✅ Docker and Docker Compose found${NC}"
 
+# Check if networking setup is needed
+echo -e "${BLUE}🌐 Checking networking configuration...${NC}"
+if [[ -f "scripts/test-networking.sh" ]]; then
+    echo "Running networking test..."
+    if ! bash scripts/test-networking.sh --coordinator-only >/dev/null 2>&1; then
+        echo -e "${YELLOW}⚠️  Networking issues detected${NC}"
+        echo ""
+        echo -e "${BLUE}🔧 Platform-specific networking setup available:${NC}"
+        
+        # Detect platform and suggest appropriate setup
+        if [[ "$OSTYPE" == "linux-gnu"* ]] && grep -qi microsoft /proc/version 2>/dev/null; then
+            echo "  Windows WSL detected"
+            echo "  Run: scripts/setup-host-networking-wsl.ps1 (as Administrator in PowerShell)"
+        elif [[ "$OSTYPE" == "darwin"* ]]; then
+            echo "  macOS detected"  
+            echo "  Run: scripts/setup-host-networking-macos.sh"
+        else
+            echo "  Manual router configuration may be needed"
+        fi
+        
+        echo ""
+        echo -e "${YELLOW}Continue anyway? (y/n)${NC}"
+        read -r CONTINUE
+        if [[ "$CONTINUE" != "y" && "$CONTINUE" != "Y" ]]; then
+            echo "Setup cancelled. Run networking setup first."
+            exit 1
+        fi
+    fi
+fi
+
 # Get public IP
 echo -e "${BLUE}🔍 Discovering your public IP...${NC}"
 PUBLIC_IP=$(curl -s https://api.ipify.org)
@@ -169,5 +199,9 @@ echo -e "${YELLOW}📝 View Logs:${NC}"
 echo "  Coordinator:   docker-compose -f coordinator/docker-compose.yml logs -f coordinator"
 echo "  Worker:        docker-compose -f coordinator/docker-compose.yml logs -f worker"
 echo "  Ingest:        docker logs streamr-ingest -f"
+echo
+echo -e "${YELLOW}🧪 Test Your Setup:${NC}"
+echo "  Full test:     scripts/test-networking.sh"
+echo "  Quick test:    curl http://localhost:8000/health"
 echo
 echo -e "${GREEN}🚀 Ready for testing! Start OBS and invite your friends!${NC}" 

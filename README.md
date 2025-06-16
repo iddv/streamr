@@ -37,10 +37,33 @@ This MCP server provides access to three specialized AI agent personas that can 
 
 ## 🚀 Quick Start
 
-### Installation
+### StreamrP2P Local Testing
+
+**For Host (You):**
+```bash
+# 1. Setup networking (platform-specific)
+scripts/setup-host-networking-wsl.ps1     # Windows WSL (run as Administrator)
+scripts/setup-host-networking-macos.sh    # macOS
+
+# 2. Start coordinator and ingest server
+./start-host.sh
+
+# 3. Test everything is working
+scripts/test-networking.sh
+
+# 4. Configure OBS and start streaming
+```
+
+**For Friends:**
+```bash
+# One-command setup (replace with your IP)
+curl -sSL https://raw.githubusercontent.com/iddv/streamr/main/setup-node.sh | bash -s http://YOUR_IP:8000 test_stream_001
+```
+
+### AI Advisors Installation
 
 ```bash
-# Clone the repository
+# Clone the repository  
 git clone https://github.com/iddv/streamr-ai-advisors-mcp.git
 cd streamr-ai-advisors-mcp
 
@@ -66,7 +89,25 @@ python streamr_advisors_server.py --output-dir ./my_consultations
 
 ## 🛠️ Available Tools
 
-### Core Consultation Tools
+### StreamrP2P Setup Scripts
+
+#### Host Setup (Your PC)
+- `start-host.sh` - One-command setup for coordinator and ingest server
+- `scripts/setup-host-networking-wsl.ps1` - Windows WSL networking configuration (PowerShell)
+- `scripts/setup-host-networking-macos.sh` - macOS networking configuration
+- `scripts/test-networking.sh` - Comprehensive networking test and diagnostics
+
+#### Friend Setup  
+- `setup-node.sh` - One-command node client setup for friends
+- Supports Docker, port conflict resolution, connectivity testing
+
+#### Documentation
+- `LOCAL_TESTING_GUIDE.md` - Complete manual setup guide
+- `FRIEND_SETUP.md` - Multiple setup options for friends  
+- `STREAMING_SETUP_CLARIFICATION.md` - Role explanations
+- `BINARY_PROPOSAL.md` - Binary distribution proposal for advisors
+
+### AI Advisor Consultation Tools
 
 - `ask_infrastructure_visionary(question, save_to_file=True)` - Technical architecture consultation
 - `ask_economic_architect(question, save_to_file=True)` - Tokenomics and economic justice consultation  
