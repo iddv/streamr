@@ -27,7 +27,7 @@ This starts the coordinator and ingest server on your PC.
 ### Step 3: Invite Friends
 Send them this one-liner (replace with your actual IP):
 ```bash
-curl -sSL https://raw.githubusercontent.com/your-username/streamr/main/setup-node.sh | bash -s http://YOUR_IP:8000 test_stream_001
+curl -sSL https://raw.githubusercontent.com/iddv/streamr/main/setup-node.sh | bash -s http://YOUR_IP:8000 test_stream_001
 ```
 
 **That's it!** 🎉
@@ -43,6 +43,7 @@ curl -sSL https://raw.githubusercontent.com/your-username/streamr/main/setup-nod
 ### 👥 For Friends
 - **`setup-node.sh`** - One-command node setup (agent-friendly)
 - **`FRIEND_SETUP.md`** - Multiple setup options for friends
+- **`STREAMING_SETUP_CLARIFICATION.md`** - Explains streaming vs restreaming roles
 
 ### 📊 Monitoring
 - Dashboard: `http://localhost:8000/dashboard`

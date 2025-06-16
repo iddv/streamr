@@ -155,7 +155,7 @@ echo "  6. Click OK and Start Streaming"
 echo
 echo -e "${YELLOW}👥 For Your Friends:${NC}"
 echo "  Send them this command to join:"
-echo "  ${BLUE}curl -sSL https://raw.githubusercontent.com/your-username/streamr/main/setup-node.sh | bash -s http://$PUBLIC_IP:8000 test_stream_001${NC}"
+  echo "  ${BLUE}curl -sSL https://raw.githubusercontent.com/iddv/streamr/main/setup-node.sh | bash -s http://$PUBLIC_IP:8000 test_stream_001${NC}"
 echo
 echo "  Or share this file: ${BLUE}FRIEND_SETUP.md${NC}"
 echo

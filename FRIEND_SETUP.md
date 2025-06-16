@@ -13,13 +13,13 @@ You're running a node that helps relay live streams. The more reliable your node
 **Just run this command** (replace `YOUR_FRIEND_IP` with the actual IP):
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/your-username/streamr/main/setup-node.sh | bash -s http://YOUR_FRIEND_IP:8000 test_stream_001
+curl -sSL https://raw.githubusercontent.com/iddv/streamr/main/setup-node.sh | bash -s http://YOUR_FRIEND_IP:8000 test_stream_001
 ```
 
 **Or download and run:**
 
 ```bash
-wget https://raw.githubusercontent.com/your-username/streamr/main/setup-node.sh
+wget https://raw.githubusercontent.com/iddv/streamr/main/setup-node.sh
 chmod +x setup-node.sh
 ./setup-node.sh http://YOUR_FRIEND_IP:8000 test_stream_001
 ```
@@ -48,7 +48,7 @@ docker logs streamr-node -f
 
 ```bash
 # Clone the repo
-git clone https://github.com/your-username/streamr.git
+git clone https://github.com/iddv/streamr.git
 cd streamr
 
 # Run the setup script
@@ -101,7 +101,7 @@ If you're an AI agent setting this up:
 **Agent-friendly command:**
 ```bash
 # This command is fully automated and provides clear success/failure feedback
-curl -sSL https://raw.githubusercontent.com/your-username/streamr/main/setup-node.sh | bash -s http://COORDINATOR_IP:8000 test_stream_001 agent_node_$(date +%s)
+curl -sSL https://raw.githubusercontent.com/iddv/streamr/main/setup-node.sh | bash -s http://COORDINATOR_IP:8000 test_stream_001 agent_node_$(date +%s)
 ```
 
 ---
