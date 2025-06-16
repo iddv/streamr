@@ -1,0 +1,20 @@
+servers:
+  - endpoints:
+      # Input: Accept streams from OBS
+      - addresses: ["0.0.0.0:1935"]
+        type: "host"
+        direction: "input"
+        applicationName: "live"
+        video: true
+        audio: true
+      # Output: Provide streams for nodes to relay
+      - addresses: ["0.0.0.0:1936"]
+        type: "host" 
+        direction: "output"
+        applicationName: "live"
+        video: true
+        audio: true
+statusPage:
+  address: "0.0.0.0:8081"
+log:
+  level: 2 
