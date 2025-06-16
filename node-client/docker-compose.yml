@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  node-client:
+    build: .
+    environment:
+      # Required: Stream to relay
+      - STREAM_ID=test_stream_001
+      
+      # Required: Coordinator URL
+      - COORDINATOR_URL=http://host.docker.internal:8000
+      
+      # Optional: Node identification
+      - NODE_ID=test_node_001
+      
+      # Optional: Port configuration
+      - RTMP_PORT=1935
+      - STATS_PORT=8080
+      
+      # Optional: Heartbeat interval (seconds)
+      - HEARTBEAT_INTERVAL=30
+    
+    ports:
+      - "1935:1935"  # RTMP port
+      - "8080:8080"  # Stats port
+    
+    restart: unless-stopped
+    
+    # Allow access to host network for coordinator communication
+    extra_hosts:
+      - "host.docker.internal:host-gateway" 
