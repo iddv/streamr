@@ -24,7 +24,7 @@ class Node(Base):
     __tablename__ = "nodes"
     
     id = Column(Integer, primary_key=True, index=True)
-    node_id = Column(String, nullable=False, index=True)
+    node_id = Column(String, nullable=False, unique=True, index=True)
     stream_id = Column(String, ForeignKey("streams.stream_id"), nullable=False)
     stats_url = Column(String, nullable=False)
     last_heartbeat = Column(DateTime, default=datetime.utcnow)
@@ -40,7 +40,7 @@ class ProbeResult(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     stream_id = Column(String, ForeignKey("streams.stream_id"), nullable=False)
-    node_id = Column(String, nullable=False, index=True)
+    node_id = Column(String, ForeignKey("nodes.node_id"), nullable=False, index=True)
     probe_type = Column(String, nullable=False)  # stats_poll, spot_check
     success = Column(Boolean, nullable=False)
     response_data = Column(Text)  # JSON response from stats endpoint
