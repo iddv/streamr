@@ -147,8 +147,10 @@ class NodeClient:
         # Create rtmp_relay configuration
         config = {
             "servers": [{
+                "name": "default",
                 "endpoints": [
                     {
+                        "name": "source-input",
                         "addresses": [source_rtmp_url],
                         "type": "client",
                         "direction": "input",
@@ -160,6 +162,7 @@ class NodeClient:
                         "reconnectCount": 0  # Reconnect forever
                     },
                     {
+                        "name": "local-output", 
                         "addresses": [f"0.0.0.0:{self.rtmp_port}"],
                         "type": "host",
                         "direction": "output",
