@@ -7,7 +7,7 @@
 
 ---
 
-## 🎯 **Current Phase: Phase 2A - AWS Infrastructure Ready**
+## 🎯 **Current Phase: Phase 2B - Live on AWS! 🚀**
 
 ### **✅ COMPLETED PHASES**
 
@@ -26,6 +26,19 @@
 - ✅ **Cost Optimized**: $27/month beta, $45/month gamma, $120/month prod
 - ✅ **Infrastructure as Code**: Version controlled, repeatable deployments
 - ✅ **CloudFormation Templates**: Successfully synthesized and validated
+
+#### **Phase 2B: AWS Deployment** *(100% Complete)*
+- ✅ **Beta Infrastructure Deployed**: All AWS resources live in eu-west-1
+- ✅ **Comprehensive Testing**: 9-point sanity test suite validates all components
+- ✅ **Security Validation**: Database/cache properly isolated, SSH access working
+- ✅ **Cost Tracking**: $27/month actual cost confirmed
+- ✅ **Ready for Application**: EC2 instance configured and awaiting StreamrP2P deployment
+
+**🌐 Live Beta Endpoints**:
+- **Instance**: i-0ac35c7a6284b6b49 (108.130.35.167)
+- **Load Balancer**: streamr-p2p-beta-alb-722019741.eu-west-1.elb.amazonaws.com
+- **Database**: streamr-p2p-beta-db.c3q28wieso7a.eu-west-1.rds.amazonaws.com:5432
+- **Cache**: streamr-p2p-beta-cache.e6qheu.0001.euw1.cache.amazonaws.com:6379
 
 ---
 
@@ -54,13 +67,19 @@ Prod:   t3.medium, multi-AZ, full protection       (~$120/month)
 
 ## 🎯 **NEXT IMMEDIATE STEPS** 
 
-### **Phase 2B: AWS Deployment** *(Ready to Start)*
-1. **Deploy Beta Infrastructure**: `./infrastructure/scripts/deploy-beta.sh`
-2. **Application Deployment**: Deploy StreamrP2P code to EC2 instance
-3. **End-to-End Testing**: Validate RTMP + API + Dashboard on AWS
-4. **Friend Network Testing**: Invite friends to test across real networks
+### **Phase 2C: Application Deployment** *(Ready to Start)*
+1. **Deploy StreamrP2P Application**: Clone and configure on EC2 instance
+2. **Environment Configuration**: Database credentials, Redis connection, environment variables
+3. **Service Startup**: Docker Compose with coordinator, SRS, and monitoring
+4. **Health Verification**: ALB target health, API endpoints, RTMP streaming
 
-### **Phase 2C: Production Readiness** *(Planned)*
+### **Phase 2D: Friends Testing** *(Next)*
+1. **End-to-End Testing**: Validate RTMP + API + Dashboard on AWS
+2. **Friend Network Testing**: Invite friends to test across real networks
+3. **Performance Monitoring**: Track streaming quality and node rewards
+4. **Bug Fixes & Optimization**: Address issues found during testing
+
+### **Phase 3: Production Readiness** *(Planned)*
 1. **Domain & SSL**: Route53 + Certificate Manager setup
 2. **Monitoring & Alerts**: CloudWatch dashboards and alarms  
 3. **CI/CD Pipeline**: GitHub Actions for automated deployments

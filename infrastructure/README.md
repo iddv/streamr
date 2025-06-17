@@ -2,6 +2,24 @@
 
 AWS CDK infrastructure for the StreamrP2P "restreaming as support" P2P streaming platform.
 
+## 🌐 **Live Beta Environment**
+
+**Status**: ✅ Deployed and Running  
+**Region**: eu-west-1 (Ireland)  
+**Stage**: beta  
+
+### **Live Endpoints**
+- **🎛️ Web Dashboard**: http://streamr-p2p-beta-alb-722019741.eu-west-1.elb.amazonaws.com/
+- **📡 RTMP Streaming**: `rtmp://108.130.35.167:1935/live`
+- **🖥️ EC2 Instance**: i-0ac35c7a6284b6b49 (108.130.35.167)
+- **🗄️ PostgreSQL**: streamr-p2p-beta-db.c3q28wieso7a.eu-west-1.rds.amazonaws.com:5432
+- **⚡ Redis Cache**: streamr-p2p-beta-cache.e6qheu.0001.euw1.cache.amazonaws.com:6379
+
+### **SSH Access**
+```bash
+ssh -i ~/.ssh/mailserver.pem ec2-user@108.130.35.167
+```
+
 ## 🎯 Architecture Overview
 
 ```

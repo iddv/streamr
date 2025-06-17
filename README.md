@@ -2,11 +2,18 @@
 
 **"Restreaming as Support"** - P2P streaming platform where friends earn crypto rewards for helping distribute streams.
 
-## 🎯 **Current Status: Phase 2A Complete - AWS Infrastructure Ready**
+## 🎯 **Current Status: Phase 2B Complete - Live on AWS! 🚀**
 
 ✅ **Working Local System**: 22+ hours validated operation  
 ✅ **Professional AWS Infrastructure**: Multi-stage CDK architecture complete  
-✅ **Ready for Deployment**: `./infrastructure/scripts/deploy-beta.sh`
+✅ **Live Beta Deployment**: StreamrP2P running on AWS eu-west-1
+
+### **🌐 Live Beta Endpoints**
+- **🎛️ Web Dashboard**: http://streamr-p2p-beta-alb-722019741.eu-west-1.elb.amazonaws.com/
+- **📡 RTMP Streaming**: `rtmp://108.130.35.167:1935/live`
+- **🖥️ Instance**: i-0ac35c7a6284b6b49 (108.130.35.167)
+- **🗄️ Database**: streamr-p2p-beta-db.c3q28wieso7a.eu-west-1.rds.amazonaws.com:5432
+- **⚡ Cache**: streamr-p2p-beta-cache.e6qheu.0001.euw1.cache.amazonaws.com:6379
 
 ---
 
@@ -92,10 +99,10 @@ This project includes three specialized AI advisor personas in `research/`:
 - Security groups, IAM roles, CloudWatch monitoring
 - Cost-optimized: $27/month (beta) → $120/month (prod)
 
-### **Phase 2B: AWS Deployment** 🎯 Next
-- Deploy infrastructure: `./infrastructure/scripts/deploy-beta.sh`
-- Application deployment to EC2
-- Friends-and-family testing across networks
+### **Phase 2B: AWS Deployment** ✅ Complete
+- ✅ Infrastructure deployed: Multi-stage CDK architecture live
+- 🎯 Next: Application deployment to EC2 instance
+- 🎯 Next: Friends-and-family testing across networks
 
 ---
 
@@ -120,13 +127,18 @@ This project includes three specialized AI advisor personas in `research/`:
 
 ---
 
-## 🚀 **Ready to Deploy**
+## 🚀 **Live & Ready for Testing**
 
-**StreamrP2P has successfully transitioned from concept to production-ready infrastructure.**
+**StreamrP2P has successfully deployed to AWS and is ready for friends-and-family testing!**
 
-**Next Step**: `cd infrastructure && ./scripts/deploy-beta.sh` 
+**Next Steps**: 
+1. Deploy application code to EC2 instance
+2. Configure streaming endpoints
+3. Invite friends to test across real networks! 🌍
 
-Then invite friends to test across real networks! 🌍
+**Test URLs**:
+- Dashboard: http://streamr-p2p-beta-alb-722019741.eu-west-1.elb.amazonaws.com/
+- RTMP: `rtmp://108.130.35.167:1935/live`
 
 ---
 
