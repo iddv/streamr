@@ -1,14 +1,18 @@
 servers:
   - endpoints:
-      # Input: Accept streams from OBS
-      - name: "obs-ingest"
-        addresses: [ "0.0.0.0:1935" ]
+      - addresses: ["0.0.0.0:1935"]
         type: "host"
         direction: "input"
+        applicationName: "live"
+        video: true
+        audio: true
+      - addresses: ["0.0.0.0:1936"]
+        type: "host" 
+        direction: "output"
         applicationName: "live"
         video: true
         audio: true
 statusPage:
   address: "0.0.0.0:8081"
 log:
-  level: 2 
+  level: 2
