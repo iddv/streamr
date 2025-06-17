@@ -1,127 +1,243 @@
-# 🗺️ StreamrP2P Repository Structure
+# 📁 StreamrP2P Repository Structure
 
-**Organized for AI Agent Navigation**
+**Clean, organized structure for AI agent navigation and professional development.**
+
+---
+
+## 🏗️ **Root Directory Overview**
 
 ```
-streamr/
-├── 📋 README.md                               # 🎯 START HERE - Agent Map & Quick Start
-├── 📊 CURRENT_STATUS.md                       # 🚀 Project Status & Progress  
-├── 🎉 BREAKTHROUGH_MILESTONE_SUMMARY.md       # ✅ Recent Achievement Summary
-├── 🧪 LOCAL_TESTING_GUIDE.md                 # 🔧 Complete Local Testing Guide
-├── 🌐 REMOTE_TESTING_GUIDE.md                # 👥 Phase 2 Friend Testing Guide
-│
-├── 🏗️ CORE SERVICES/
-│   ├── coordinator/                          # FastAPI server, DB, worker validation
-│   ├── node-client/                          # Friend node client containers
-│   ├── ingest-server/                        # SRS RTMP streaming server
-│   └── scripts/                              # Networking & setup automation
-│
-├── 🚀 SETUP SCRIPTS/
-│   ├── start-host.sh                         # One-command host setup
-│   ├── setup-node.sh                         # One-command friend setup  
-│   ├── test_streaming.sh                     # Stream testing script
-│   └── test_streaming_srs.sh                 # SRS streaming test
-│
-├── 📚 RESEARCH & STRATEGY/
-│   └── research/
-│       ├── prfaq_phase2_ready.md             # Updated PRFAQ with achievements
-│       ├── prfaq.md                          # Original product vision
-│       ├── project_tracker.md                # Phase tracking
-│       └── [AI advisor personas & analysis]
-│
-├── 📁 ORGANIZED DOCS/
-│   └── docs/
-│       ├── analysis/                         # Business, technical, competitive analysis
-│       │   ├── economic_feasibility_analysis.md
-│       │   ├── technical_feasibility_analysis.md
-│       │   ├── competitive-analysis.md
-│       │   ├── community_adoption_analysis.md
-│       │   ├── BINARY_PROPOSAL.md
-│       │   ├── NETWORKING_AUTOMATION_SUMMARY.md
-│       │   └── [design & planning docs]
-│       └── testing/
-│           ├── STREAMING_SETUP_CLARIFICATION.md
-│           └── FRIEND_SETUP.md
-│
-├── 🗂️ ARCHIVE/
-│   └── archive/
-│       ├── chat1.txt                         # Development conversation logs
-│       ├── chat2.txt
-│       └── chat3.txt
-│
-└── ⚙️ CONFIG FILES/
-    ├── pyproject.toml                        # Python project config
-    ├── LICENSE                               # MIT license
-    └── .gitignore                            # Git ignore rules
+streamr/                           # 🚀 StreamrP2P Root
+├── infrastructure/                # 🏗️ AWS CDK Infrastructure (NEW!)
+├── coordinator/                   # 🎛️ FastAPI Backend Services  
+├── node-client/                   # 👥 Friend Node P2P Client
+├── docs/                          # 📚 Organized Documentation Hub
+├── research/                      # 🔬 Strategic Research & Planning
+├── archive/                       # 📦 Historical Development Notes
+├── scripts/                       # 🛠️ Development & Testing Utilities
+├── ingest-server/                 # 📡 RTMP Streaming Configuration
+├── CURRENT_STATUS.md              # 📊 Current Progress & Next Steps
+├── README.md                      # 🗺️ AI Agent Navigation Map
+├── REPOSITORY_STRUCTURE.md        # 📁 This file - structure guide
+├── BREAKTHROUGH_MILESTONE_SUMMARY.md # 🎯 Major Achievement Summary
+├── LOCAL_TESTING_GUIDE.md         # 🔧 Local Development Guide
+└── setup-friend-node.sh           # 👥 Friend Onboarding Script
 ```
 
 ---
 
-## 🎯 AI Agent Quick Navigation Guide
+## 🏗️ **Infrastructure Directory** *(NEW - CDK Architecture)*
 
-### 🚨 **FIRST TIME HERE?**
-1. **Read**: `README.md` (project overview & map)
-2. **Status**: `CURRENT_STATUS.md` (where we are now)
-3. **Achievement**: `BREAKTHROUGH_MILESTONE_SUMMARY.md` (what just worked)
+```
+infrastructure/                    # AWS CDK Infrastructure as Code
+├── lib/
+│   ├── config/
+│   │   ├── types.ts               # TypeScript interfaces & types
+│   │   ├── streamr-config.ts      # Multi-stage configuration
+│   │   └── deployment-context.ts  # Context utilities
+│   └── stacks/
+│       ├── foundation-stack.ts    # VPC, RDS, ElastiCache
+│       └── application-stack.ts   # EC2, ALB, Security Groups
+├── bin/
+│   └── infrastructure.ts          # CDK app entry point
+├── scripts/
+│   └── deploy-beta.sh            # 🚀 One-command deployment
+├── test/                          # CDK unit tests
+├── README.md                      # Complete infrastructure guide
+├── package.json                   # CDK dependencies
+└── cdk.json                       # CDK configuration
+```
 
-### 🔧 **WANT TO TEST THE SYSTEM?**
-1. **Local Setup**: `LOCAL_TESTING_GUIDE.md`
-2. **Host Script**: `./start-host.sh` 
-3. **Friend Setup**: `./setup-node.sh`
-
-### 🚀 **READY FOR PHASE 2?**
-1. **Remote Guide**: `REMOTE_TESTING_GUIDE.md`
-2. **Core Services**: `coordinator/`, `node-client/`, `ingest-server/`
-3. **Scripts**: `scripts/` folder
-
-### 📊 **NEED BACKGROUND/ANALYSIS?**
-1. **Strategy**: `research/prfaq_phase2_ready.md`
-2. **Deep Analysis**: `docs/analysis/`
-3. **Historical**: `archive/`
-
-### 🤔 **WHAT'S WORKING RIGHT NOW?**
-- ✅ **Live Streaming**: SRS server ingesting 8+ Mbps RTMP
-- ✅ **Friend Nodes**: Connecting, heartbeating, earning rewards
-- ✅ **Coordination**: Real-time API dashboard & earnings
-- ✅ **Fraud Detection**: Automated validation system
-- ✅ **Complete Stack**: PostgreSQL + Redis + FastAPI + Docker
+**Purpose**: Professional AWS infrastructure with multi-stage (beta/gamma/prod) and multi-region support.
 
 ---
 
-## 📋 Key File Purposes
+## 🎛️ **Coordinator Directory** *(Core Backend)*
 
-| File | Purpose | AI Agent Use Case |
-|------|---------|-------------------|
-| `README.md` | Project map & overview | Understanding what StreamrP2P is |
-| `CURRENT_STATUS.md` | Detailed progress & next steps | Getting current project state |
-| `BREAKTHROUGH_MILESTONE_SUMMARY.md` | Recent achievement details | Understanding what just worked |
-| `LOCAL_TESTING_GUIDE.md` | Complete testing walkthrough | Learning how to test locally |
-| `REMOTE_TESTING_GUIDE.md` | Phase 2 setup guide | Setting up friend testing |
-| `start-host.sh` | Host setup automation | Starting the streaming host |
-| `setup-node.sh` | Friend node setup | Helping friends join streams |
+```
+coordinator/                       # FastAPI Backend Services
+├── app/
+│   ├── __init__.py
+│   ├── main.py                    # 🎯 Main FastAPI application
+│   ├── database.py                # Database connection & models
+│   ├── models.py                  # SQLAlchemy data models
+│   ├── schemas.py                 # Pydantic request/response schemas
+│   ├── payout_service.py          # 💰 Earnings calculation engine
+│   ├── spot_check_prober.py       # 🔍 Fraud detection service
+│   ├── stats_collector.py         # 📊 Node statistics collection
+│   └── worker.py                  # Background task worker
+├── database/                      # Database migrations & setup
+├── docker/                        # Docker configuration
+├── docker-compose.yml             # 🐳 Service orchestration
+├── Dockerfile                     # Container definition
+├── requirements.txt               # Python dependencies
+└── README.md                      # Backend documentation
+```
 
----
-
-## 🎯 Clean Organization Benefits
-
-### ✅ **For AI Agents**
-- **Clear Entry Point**: README serves as navigation map
-- **Logical Grouping**: Related docs in organized folders
-- **Reduced Confusion**: No more scattered files at root level
-- **Quick Access**: Essential files easily findable
-
-### ✅ **For Developers**  
-- **Faster Onboarding**: Clear structure and documentation
-- **Easy Navigation**: Know exactly where to find information
-- **Better Maintenance**: Organized structure easier to update
-- **Professional Appearance**: Clean, well-structured repository
-
-### ✅ **For Future Growth**
-- **Scalable Structure**: Easy to add new docs in right places
-- **Version Control**: Cleaner git history with organized files
-- **Team Collaboration**: Clear where to put different types of docs
-- **Open Source Ready**: Professional structure for public repository
+**Purpose**: Coordination server that manages friend nodes, calculates earnings, and provides real-time API.
 
 ---
 
-*This structure balances immediate accessibility with long-term organization, making it easy for both AI agents and human developers to navigate the StreamrP2P project.* 
+## 👥 **Node Client Directory** *(Friend P2P Client)*
+
+```
+node-client/                       # Friend Node Implementation
+├── scripts/
+│   └── node_client.py            # 👥 Main friend node client
+├── docker/                        # Docker configuration for nodes
+├── docker-compose.yml             # Node service definition
+├── Dockerfile                     # Node container setup
+├── test_local_node.py             # 🧪 Local testing script
+└── README.md                      # Node setup guide
+```
+
+**Purpose**: Client that friends run to participate in P2P network and earn rewards.
+
+---
+
+## 📚 **Documentation Hub** *(Organized by Topic)*
+
+```
+docs/                              # Centralized Documentation
+├── aws-deployment/                # ☁️ AWS & Infrastructure Guides
+│   ├── AWS_DEPLOYMENT_GUIDE.md    # Step-by-step AWS setup
+│   ├── AWS_MCP_CONFIGURATION.md   # MCP server configuration
+│   ├── CDK_VS_TERRAFORM_COMPARISON.md # Infrastructure comparison
+│   └── STREAMR_CDK_INFRASTRUCTURE_PLAN.md # CDK architecture plan
+├── networking/                    # 🌐 Network & Security Guides  
+│   ├── FIX_WSL2_NETWORKING.md     # WSL2 networking fixes
+│   ├── TROUBLESHOOT_WSL2_EXTERNAL_ACCESS.md # External access guide
+│   └── SECURE_REMOTE_TESTING_OPTIONS.md # Security considerations
+├── testing/                       # 🧪 Testing Strategies & Guides
+│   ├── PRAGMATIC_REMOTE_TESTING_PLAN.md # Phase 2A testing plan
+│   ├── REMOTE_TESTING_CHECKLIST.md # Security checklist
+│   ├── REMOTE_TESTING_GUIDE.md    # Remote testing guide
+│   ├── FRIEND_SETUP.md            # Friend onboarding
+│   └── STREAMING_SETUP_CLARIFICATION.md # Streaming setup
+└── analysis/                      # 📊 Research & Analysis
+    ├── BINARY_PROPOSAL.md         # Binary executable proposal
+    ├── community_adoption_analysis.md # Community strategy
+    ├── competitive-analysis.md    # Market analysis
+    ├── economic_feasibility_analysis.md # Economic model
+    ├── legal-regulatory.md        # Legal considerations
+    ├── NETWORKING_AUTOMATION_SUMMARY.md # Automation analysis
+    ├── poc-tasks.md               # Proof of concept tasks
+    ├── proof-of-bandwidth.md      # Bandwidth validation
+    ├── social-design.md           # Social platform design
+    ├── sponsorship-contract-architecture.md # Smart contracts
+    ├── technical_feasibility_analysis.md # Technical analysis
+    └── TESTING_SUMMARY.md         # Testing methodology
+```
+
+**Purpose**: Organized documentation by topic area for easy navigation and maintenance.
+
+---
+
+## 🔬 **Research Directory** *(Strategic Planning)*
+
+```
+research/                          # Strategic Research & Planning
+├── ai_agent_usage_guide.md        # AI agent collaboration guide
+├── analysis_of_feasibility.md     # Project feasibility analysis
+├── prfaq_phase2_ready.md          # 🎯 Updated PRFAQ (Phase 2 ready)
+├── prfaq.md                       # Original product vision
+├── product_development_plan.md    # Development roadmap
+├── project_tracker.md             # Progress tracking
+├── README.md                      # Research overview
+└── [AI Advisor Personas]          # Specialized AI advisor documents
+```
+
+**Purpose**: High-level strategy, product vision, and specialized AI advisor consultation.
+
+---
+
+## 📦 **Archive Directory** *(Historical Context)*
+
+```
+archive/                           # Historical Development
+├── chat1.txt                      # Early development conversations
+├── chat2.txt                      # Technical breakthrough discussions  
+└── chat3.txt                      # Architecture planning sessions
+```
+
+**Purpose**: Preserves development history and decision-making context.
+
+---
+
+## 🛠️ **Scripts Directory** *(Development Utilities)*
+
+```
+scripts/                           # Development & Testing Scripts
+├── setup-host-networking-macos.sh # macOS network configuration
+├── setup-host-networking-wsl.ps1  # WSL network configuration  
+└── test-networking.sh             # Network connectivity testing
+```
+
+**Purpose**: Automation scripts for development environment setup and testing.
+
+---
+
+## 📡 **Ingest Server Directory** *(Streaming Configuration)*
+
+```
+ingest-server/                     # RTMP Streaming Setup
+├── ingest_config.yaml             # SRS server configuration
+├── nginx.conf                     # Nginx RTMP configuration
+├── simple-nginx.conf              # Simplified nginx setup
+├── start-ingest.ps1               # Windows startup script
+└── start-ingest.sh                # Linux startup script
+```
+
+**Purpose**: RTMP streaming server configuration and startup scripts.
+
+---
+
+## 🎯 **Key Files at Root Level**
+
+| File | Purpose | When to Read |
+|------|---------|--------------|
+| **CURRENT_STATUS.md** | 📊 Project progress, achievements, next steps | First priority for status |
+| **README.md** | 🗺️ AI agent navigation map | Entry point for understanding |
+| **REPOSITORY_STRUCTURE.md** | 📁 This file - detailed structure guide | Understanding organization |
+| **BREAKTHROUGH_MILESTONE_SUMMARY.md** | 🎯 Major achievements summary | Understanding recent progress |
+| **LOCAL_TESTING_GUIDE.md** | 🔧 Complete local testing guide | Development and testing |
+| **setup-friend-node.sh** | 👥 One-command friend onboarding | Friend setup automation |
+
+---
+
+## 🎭 **AI Agent Navigation Tips**
+
+### **For Status & Progress**
+1. Start with `CURRENT_STATUS.md` for overall project status
+2. Check `BREAKTHROUGH_MILESTONE_SUMMARY.md` for recent achievements
+3. Review `infrastructure/README.md` for deployment readiness
+
+### **For Technical Understanding**
+1. Explore `coordinator/app/main.py` for backend logic
+2. Check `node-client/scripts/node_client.py` for P2P implementation
+3. Review `infrastructure/lib/stacks/` for AWS architecture
+
+### **For Documentation**
+1. Use `docs/` subdirectories for specific topic areas
+2. Check `research/` for strategic planning and vision
+3. Reference `archive/` for historical development context
+
+### **For Development**
+1. Use `LOCAL_TESTING_GUIDE.md` for local setup
+2. Run `./start-host.sh` for local development server
+3. Use `infrastructure/scripts/deploy-beta.sh` for AWS deployment
+
+---
+
+## 🚀 **Clean & Professional Structure**
+
+This repository structure provides:
+
+- ✅ **Clear Separation of Concerns**: Infrastructure, application, docs, research
+- ✅ **AI Agent Friendly**: Easy navigation with clear purpose statements
+- ✅ **Professional Organization**: Industry-standard directory structure
+- ✅ **Scalable Architecture**: Ready for team collaboration and growth
+- ✅ **Documentation First**: Comprehensive guides for all aspects
+- ✅ **Development Ready**: All tools and scripts organized and accessible
+
+**Result**: A production-ready codebase that's easy to navigate, understand, and contribute to! 🎉 
