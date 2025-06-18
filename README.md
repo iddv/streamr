@@ -6,10 +6,11 @@
 ## 🎯 For New Agents/Developers - START HERE
 
 ### 📋 **Critical Context to Load First**
-1. **📄 Read**: [`CURRENT_STATUS.md`](CURRENT_STATUS.md) - Current phase and next actions
-2. **📊 Review**: [`StreamrP2P_Technical_Progress_Report.md`](StreamrP2P_Technical_Progress_Report.md) - Full technical assessment  
-3. **🔗 Check**: [`LIVE_ENDPOINTS.md`](LIVE_ENDPOINTS.md) - Active system URLs and testing info
-4. **🏗️ Infrastructure**: [`infrastructure/README.md`](infrastructure/README.md) - AWS deployment guide
+1. **📊 Quick Visual**: See [System Architecture](#-system-architecture) below for complete visual overview
+2. **📄 Read**: [`CURRENT_STATUS.md`](CURRENT_STATUS.md) - Current phase and next actions
+3. **📊 Review**: [`StreamrP2P_Technical_Progress_Report.md`](StreamrP2P_Technical_Progress_Report.md) - Full technical assessment  
+4. **🔗 Check**: [`LIVE_ENDPOINTS.md`](LIVE_ENDPOINTS.md) - Active system URLs and testing info
+5. **🏗️ Infrastructure**: [`infrastructure/README.md`](infrastructure/README.md) - AWS deployment guide
 
 ### 🚀 **What To Do Next** *(Current Priority)*
 **Phase 2D: Friends Testing** - Core streaming works, now need P2P supporters
@@ -47,6 +48,17 @@ StreamrP2P transforms streaming from a solo activity into a **collaborative supp
 
 ## 🏗️ **System Architecture**
 
+### **📊 Visual Overview**
+
+#### **🔭 1000-Foot View: Complete System**
+![StreamrP2P System Overview](generated-diagrams/streamr-1000-foot-view.png)
+
+#### **🎯 Current Infrastructure: Live AWS Stack**
+![StreamrP2P Current Infrastructure](generated-diagrams/streamr-overview.png)
+
+#### **⚙️ Detailed Component Architecture**
+![StreamrP2P Detailed Architecture](generated-diagrams/streamr-detailed.png)
+
 ### **Current: Centralized AWS + Ready for P2P**
 ```
 Your OBS → AWS StreamrP2P → Multiple Protocols:
@@ -68,6 +80,22 @@ Your OBS → AWS Hub → Friend Node 1 → VLC Viewers
 - **Infrastructure**: AWS CDK (EC2, RDS, ElastiCache, ALB)
 - **P2P Client**: Python node client for friends
 - **Protocols**: RTMP (ingest), HLS (web), HTTP-FLV (VLC)
+
+### **🔄 Updating Architecture Diagrams**
+The diagrams in this README are generated programmatically and should be updated when the system architecture changes.
+
+**To regenerate diagrams:**
+1. **Install Dependencies**: `pip3 install diagrams` (requires Graphviz: `sudo apt-get install graphviz`)
+2. **Use AWS Diagram MCP Server**: Ask an AI assistant with MCP access to generate new diagrams
+3. **Replace Files**: Update the PNG files in `generated-diagrams/` directory
+4. **Commit Changes**: Include both code changes and updated diagrams in your commits
+
+**Current Diagrams**:
+- `streamr-1000-foot-view.png` - Complete system overview
+- `streamr-overview.png` - Current AWS infrastructure 
+- `streamr-detailed.png` - Detailed component architecture
+
+> 💡 **Tip**: When making architecture changes, regenerate diagrams in the same commit to keep documentation in sync with code changes.
 
 ---
 
