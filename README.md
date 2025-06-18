@@ -244,4 +244,19 @@ The system now provides:
 
 ---
 
+## 📄 **License Notice**
+
+**🔒 PROPRIETARY SOFTWARE - ALL RIGHTS RESERVED**
+
+This software is proprietary and confidential. **No use, modification, or distribution is permitted without explicit written consent** from Ian de Villiers. 
+
+- ❌ **No unauthorized use of any kind**
+- ❌ **No commercial use without license agreement**  
+- ✅ **Source code viewing for evaluation only**
+- 📧 **Contact required for licensing inquiries**
+
+See [`LICENSE`](LICENSE) for complete terms and restrictions.
+
+---
+
 *StreamrP2P: Transforming streaming from solo activity to collaborative community support.* 🌟 

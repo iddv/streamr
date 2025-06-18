@@ -1,21 +1,54 @@
-MIT License
+PROPRIETARY SOFTWARE LICENSE
 
-Copyright (c) 2024 Ian de Villiers
+Copyright (c) 2024-2025 Ian de Villiers
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+ALL RIGHTS RESERVED
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+This software and associated documentation files (the "Software") are the proprietary 
+and confidential property of Ian de Villiers ("Owner"). 
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE. 
+RESTRICTIONS:
+No person or entity may, without the prior written consent of the Owner:
+- Use, execute, or run the Software in any form
+- Copy, reproduce, or duplicate the Software or any portion thereof
+- Modify, adapt, alter, or create derivative works based on the Software
+- Distribute, publish, transmit, or make available the Software to any third party
+- Reverse engineer, decompile, disassemble, or attempt to derive source code
+- Remove, alter, or obscure any proprietary notices or labels on the Software
+- Grant sublicenses or transfer rights to the Software
+
+PERMITTED VIEWING:
+The source code may be viewed for evaluation purposes only, but such viewing does not 
+grant any rights to use, modify, or distribute the Software.
+
+COMMERCIAL USE PROHIBITED:
+No commercial use of any kind is permitted without explicit written license agreement 
+from the Owner, including but not limited to:
+- Operating the Software in a business environment
+- Using the Software to provide services to third parties
+- Incorporating the Software into commercial products
+- Using the Software for any revenue-generating activities
+
+ENFORCEMENT:
+Unauthorized use of this Software constitutes copyright infringement and breach of this 
+license agreement, subjecting violators to both civil and criminal penalties under 
+applicable law.
+
+CONTACT FOR LICENSING:
+For licensing inquiries, permission requests, or authorized use agreements, contact:
+Ian de Villiers
+Email: [Contact information to be provided upon request]
+
+NO WARRANTY:
+THE SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. THE OWNER DISCLAIMS 
+ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF 
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+
+LIMITATION OF LIABILITY:
+IN NO EVENT SHALL THE OWNER BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, 
+WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR IN 
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+This license is effective immediately and remains in effect until terminated by the Owner.
+
+Last Updated: June 18, 2025 

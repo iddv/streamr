@@ -1,3 +1,11 @@
+#!/usr/bin/env python3
+"""
+StreamrP2P Coordinator API
+
+Copyright (c) 2024-2025 Ian de Villiers. All Rights Reserved.
+Proprietary and Confidential Software. Unauthorized use prohibited.
+"""
+
 from fastapi import FastAPI, HTTPException, Depends
 from sqlalchemy.orm import Session
 from typing import List
