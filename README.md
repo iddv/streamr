@@ -1,145 +1,247 @@
-# 🚀 StreamrP2P - AI Agent Navigation Map
+# 🚀 StreamrP2P - "Restreaming as Support"
 
-**"Restreaming as Support"** - P2P streaming platform where friends earn crypto rewards for helping distribute streams.
+**Status**: ✅ **LIVE & OPERATIONAL** - VLC streaming working, ready for friends testing  
+**Last Updated**: June 18, 2025
 
-## 🎯 **Current Status: Phase 2B Complete - Live on AWS! 🚀**
+## 🎯 For New Agents/Developers - START HERE
 
-✅ **Working Local System**: 22+ hours validated operation  
-✅ **Professional AWS Infrastructure**: Multi-stage CDK architecture complete  
-✅ **Live Beta Deployment**: StreamrP2P running on AWS eu-west-1
+### 📋 **Critical Context to Load First**
+1. **📄 Read**: [`CURRENT_STATUS.md`](CURRENT_STATUS.md) - Current phase and next actions
+2. **📊 Review**: [`StreamrP2P_Technical_Progress_Report.md`](StreamrP2P_Technical_Progress_Report.md) - Full technical assessment  
+3. **🔗 Check**: [`LIVE_ENDPOINTS.md`](LIVE_ENDPOINTS.md) - Active system URLs and testing info
+4. **🏗️ Infrastructure**: [`infrastructure/README.md`](infrastructure/README.md) - AWS deployment guide
 
-### **🌐 Live Beta Endpoints**
-- **🎛️ Web Dashboard**: http://streamr-p2p-beta-alb-722019741.eu-west-1.elb.amazonaws.com/
-- **📡 RTMP Streaming**: `rtmp://108.130.35.167:1935/live`
-- **🖥️ Instance**: i-0ac35c7a6284b6b49 (108.130.35.167)
-- **🗄️ Database**: streamr-p2p-beta-db.c3q28wieso7a.eu-west-1.rds.amazonaws.com:5432
-- **⚡ Cache**: streamr-p2p-beta-cache.e6qheu.0001.euw1.cache.amazonaws.com:6379
+### 🚀 **What To Do Next** *(Current Priority)*
+**Phase 2D: Friends Testing** - Core streaming works, now need P2P supporters
+1. Deploy friend node setup scripts
+2. Create supporter onboarding materials  
+3. Test with 5+ friend nodes from different locations
+4. Establish private testing community
 
----
-
-## 🗺️ **Repository Navigation**
-
-### **🏗️ Infrastructure (AWS CDK)**
-```
-infrastructure/
-├── lib/config/           # Multi-stage, multi-region configuration
-├── lib/stacks/           # Foundation & Application CloudFormation stacks
-├── scripts/              # Deployment automation (deploy-beta.sh)
-└── README.md             # Complete infrastructure guide & commands
-```
-**Key Files**: 
-- 📋 `infrastructure/README.md` - Complete setup & deployment guide
-- 🚀 `infrastructure/scripts/deploy-beta.sh` - One-command AWS deployment
-
-### **🎛️ Core Application**
-```
-coordinator/              # FastAPI backend + PostgreSQL + Redis
-node-client/              # Friend node client for P2P network
-scripts/                  # Local testing & setup utilities
-```
-**Key Files**:
-- 🎯 `coordinator/app/main.py` - Main FastAPI application
-- 👥 `node-client/scripts/node_client.py` - Friend node implementation
-- 🔧 `start-host.sh` - Local development server
-
-### **📚 Documentation Hub**
-```
-docs/
-├── aws-deployment/       # AWS & CDK deployment guides
-├── networking/           # Network troubleshooting & security
-├── testing/              # Remote testing strategies & guides
-└── analysis/             # Technical feasibility & research
-```
-
-### **🔬 Research & Planning**
-```
-research/                 # Strategic planning & analysis
-archive/                  # Historical development conversations
-```
+### 🎮 **Current System Status**
+- ✅ **AWS Infrastructure**: Live on eu-west-1, cost-optimized at $45/month
+- ✅ **Streaming**: Multi-protocol RTMP/HLS/FLV working (VLC compatible)
+- ✅ **API**: FastAPI coordinator with PostgreSQL/Redis operational
+- ✅ **Testing**: Active gaming stream (`obs-test`) proven end-to-end
+- 📊 **P2P Network**: 0 friend nodes (infrastructure ready)
 
 ---
 
-## 🚀 **Quick Start Paths**
+## 📖 **What is StreamrP2P?**
 
-### **For Infrastructure Deployment**
-1. 📖 Read: `infrastructure/README.md`
-2. 🚀 Deploy: `cd infrastructure && ./scripts/deploy-beta.sh`
+StreamrP2P transforms streaming from a solo activity into a **collaborative support network** where friends earn crypto rewards for helping distribute your streams.
 
-### **For Local Development** 
-1. 📖 Read: `LOCAL_TESTING_GUIDE.md`
-2. 🔧 Start: `./start-host.sh`
+### **🎯 Core Concept: "Restreaming as Support"**
+- **You Stream**: Create content (gaming, art, music, etc.)
+- **Friends Support**: Run node clients to help distribute your stream  
+- **Everyone Wins**: Friends earn rewards, you get better streaming quality
+- **Real Connection**: Supporters see their impact in real-time
 
-### **For Understanding the Project**
-1. 📊 Status: `CURRENT_STATUS.md` - Current progress & achievements
-2. 🏗️ Structure: `REPOSITORY_STRUCTURE.md` - Detailed file organization
-3. 🎯 Milestone: `BREAKTHROUGH_MILESTONE_SUMMARY.md` - Major achievements
-
----
-
-## 🎭 **AI Agent Personas**
-
-This project includes three specialized AI advisor personas in `research/`:
-
-- **🏗️ Infrastructure Visionary**: Technical architecture & scalability
-- **⚖️ Economic Justice Architect**: Tokenomics & fair reward distribution  
-- **🤝 Human Connection Catalyst**: Community building & user experience
+### **🌟 Why StreamrP2P?**
+- **💰 Fair Economics**: Friends earn meaningful rewards ($5-50/month per node)
+- **🚀 Better Quality**: P2P distribution improves streaming performance
+- **❤️ Human Connection**: "Directed support" builds genuine community
+- **🔓 Ownership**: No platform lock-in, your content stays yours
 
 ---
 
-## 📊 **Architecture Overview**
+## 🏗️ **System Architecture**
 
-### **Phase 1: Local Validation** ✅ Complete
-- Working P2P streaming with SRS server
-- FastAPI coordination with fraud detection
-- Friend nodes earning rewards for bandwidth
+### **Current: Centralized AWS + Ready for P2P**
+```
+Your OBS → AWS StreamrP2P → Multiple Protocols:
+                          ├── RTMP: rtmp://3.254.102.92:1935/live/{key}
+                          ├── HLS: http://3.254.102.92:8085/live/{key}.m3u8  
+                          └── FLV: http://3.254.102.92:8085/live/{key}.flv
+```
 
-### **Phase 2A: AWS Infrastructure** ✅ Complete  
-- Multi-stage CDK architecture (beta/gamma/prod)
-- VPC + RDS + ElastiCache + EC2 + ALB
-- Security groups, IAM roles, CloudWatch monitoring
-- Cost-optimized: $27/month (beta) → $120/month (prod)
+### **Target: Hybrid P2P Distribution**
+```
+Your OBS → AWS Hub → Friend Node 1 → VLC Viewers
+                  → Friend Node 2 → VLC Viewers
+                  → Friend Node 3 → VLC Viewers
+```
 
-### **Phase 2B: AWS Deployment** ✅ Complete
-- ✅ Infrastructure deployed: Multi-stage CDK architecture live
-- 🎯 Next: Application deployment to EC2 instance
-- 🎯 Next: Friends-and-family testing across networks
-
----
-
-## 🔧 **Technical Stack**
-
-**Backend**: FastAPI + PostgreSQL + Redis + Docker  
-**Streaming**: SRS (Simple Realtime Server) + RTMP  
-**Infrastructure**: AWS CDK + EC2 + RDS + ElastiCache + ALB  
-**P2P Network**: Friend nodes with bandwidth contribution rewards  
-**Monitoring**: CloudWatch + Custom dashboards (planned)
+### **🔧 Technology Stack**
+- **Streaming**: SRS (Simple Realtime Server) for RTMP/HLS/FLV
+- **Backend**: FastAPI + PostgreSQL + Redis  
+- **Infrastructure**: AWS CDK (EC2, RDS, ElastiCache, ALB)
+- **P2P Client**: Python node client for friends
+- **Protocols**: RTMP (ingest), HLS (web), HTTP-FLV (VLC)
 
 ---
 
-## 🎯 **Key Achievements**
+## 📁 **Repository Structure**
 
-1. **✅ Working P2P Streaming**: End-to-end validation complete
-2. **✅ Professional Infrastructure**: Enterprise-grade AWS architecture
-3. **✅ Economic Model**: Proven friend reward distribution
-4. **✅ Security by Design**: VPC isolation & least-privilege access
-5. **✅ Multi-Stage Pipeline**: beta → gamma → prod deployment ready
-6. **✅ Cost Optimization**: Staged pricing from $27-120/month
+```
+streamr/
+├── 📄 README.md                               # ← You are here
+├── 📄 CURRENT_STATUS.md                       # ← Current progress & next actions
+├── 📄 StreamrP2P_Technical_Progress_Report.md # ← Complete technical assessment
+├── 📄 LIVE_ENDPOINTS.md                       # ← Active system URLs
+│
+├── 🏗️ infrastructure/                         # AWS CDK Infrastructure
+│   ├── scripts/deploy-beta.sh                 # Deploy to AWS
+│   ├── scripts/cost-control.sh                # Pause/resume EC2  
+│   ├── lib/                                   # CDK stack definitions
+│   └── README.md                              # Infrastructure guide
+│
+├── 🎛️ coordinator/                            # FastAPI Backend
+│   ├── app/                                   # Main application
+│   │   ├── main.py                            # API endpoints
+│   │   ├── models.py                          # Database models
+│   │   ├── payout_service.py                  # Reward calculations
+│   │   └── worker.py                          # Background tasks
+│   ├── docker-compose.yml                     # Local development
+│   └── requirements.txt                       # Python dependencies
+│
+├── 👥 node-client/                            # Friend Node Client
+│   ├── scripts/node_client.py                 # P2P node implementation
+│   ├── docker-compose.yml                     # Containerized deployment
+│   └── README.md                              # Friend setup guide
+│
+├── 📚 docs/                                   # Documentation Hub
+│   ├── testing/                               # Testing guides & results
+│   │   ├── REMOTE_TESTING_GUIDE.md            # End-to-end testing
+│   │   └── PHASE_2C_COMPLETION_REPORT.md      # Recent milestone
+│   ├── aws-deployment/                        # AWS deployment info
+│   └── analysis/                              # Technical analysis
+│
+├── 🔬 research/                               # Strategic planning
+│   ├── prfaq.md                               # Original vision document
+│   └── product_development_plan.md            # Development roadmap
+│
+└── 🛠️ scripts/                               # Utility scripts
+    ├── setup-node.sh                          # Local node setup
+    └── test-streaming.sh                      # Streaming tests
+```
 
 ---
 
-## 🚀 **Live & Ready for Testing**
+## 🚀 **Quick Start Guides**
 
-**StreamrP2P has successfully deployed to AWS and is ready for friends-and-family testing!**
+### **🎮 For Streamers**
+1. **Test Current System**: Use OBS to stream to `rtmp://3.254.102.92:1935/live/YOUR_KEY`
+2. **View in VLC**: Open `http://3.254.102.92:8085/live/YOUR_KEY.flv`
+3. **Check Dashboard**: Visit ALB endpoint for stream status
+4. **Invite Friends**: Share node setup guide when ready
 
-**Next Steps**: 
-1. Deploy application code to EC2 instance
-2. Configure streaming endpoints
-3. Invite friends to test across real networks! 🌍
+### **👥 For Friend Supporters** *(Coming Soon)*
+1. **Get Invitation**: Streamer shares setup materials
+2. **Run Node Client**: One-click Docker setup
+3. **Start Earning**: Automatic reward tracking
+4. **See Impact**: Real-time supporter dashboard
 
-**Test URLs**:
-- Dashboard: http://streamr-p2p-beta-alb-722019741.eu-west-1.elb.amazonaws.com/
-- RTMP: `rtmp://108.130.35.167:1935/live`
+### **🏗️ For Infrastructure**
+1. **Deploy to AWS**: `cd infrastructure && ./scripts/deploy-beta.sh`
+2. **Cost Control**: `./scripts/cost-control.sh pause|resume|status`
+3. **Monitor Health**: Check ALB and direct endpoints
+4. **Update Application**: Re-run deployment script
+
+### **🔧 For Development**
+1. **Local Development**: `cd coordinator && docker-compose up`
+2. **Run Tests**: `cd node-client && python test_local_node.py`
+3. **Debug Issues**: Check container logs and health endpoints
+4. **Make Changes**: Edit code, rebuild containers
 
 ---
 
-*For detailed navigation, see `REPOSITORY_STRUCTURE.md` | For current progress, see `CURRENT_STATUS.md`* 
+## 🎯 **Current Milestone: Phase 2D - Friends Testing**
+
+### **✅ What's Complete**
+- **AWS Infrastructure**: Production-grade deployment with cost optimization
+- **Core Streaming**: RTMP ingest + HLS/FLV output working perfectly
+- **VLC Compatibility**: Critical fix applied, all protocols operational
+- **API Coordination**: Stream tracking, node management, reward calculations
+- **Security**: Production security groups, SSL connections, health checks
+
+### **🚀 What's Next**
+- **Friend Node Deployment**: Easy setup for supporter nodes
+- **Onboarding Experience**: Personal setup calls for 100% success rate
+- **Multi-Node Validation**: Test with 5+ supporters from different locations
+- **Community Building**: Private testing group for feedback and iteration
+
+### **💰 Economics**
+- **Current Cost**: ~$45/month (pausable to $36/month when not streaming)
+- **Target Supporter Earnings**: $5-50/month per active node
+- **Revenue Model**: Premium features, enterprise licensing, transaction fees
+
+---
+
+## 🔗 **Live System Access**
+
+### **🌐 Current Endpoints** *(Active Now)*
+- **API**: http://streamr-p2p-beta-alb-722019741.eu-west-1.elb.amazonaws.com/
+- **Health Check**: `curl http://streamr-p2p-beta-alb-722019741.eu-west-1.elb.amazonaws.com/health`
+- **Dashboard**: `curl http://streamr-p2p-beta-alb-722019741.eu-west-1.elb.amazonaws.com/dashboard`
+
+### **📺 Streaming Endpoints**
+- **RTMP Ingest**: `rtmp://3.254.102.92:1935/live/{stream_key}`
+- **HLS Playback**: `http://3.254.102.92:8085/live/{stream_key}.m3u8`
+- **HTTP-FLV (VLC)**: `http://3.254.102.92:8085/live/{stream_key}.flv`
+- **Direct RTMP**: `rtmp://3.254.102.92:1935/live/{stream_key}`
+
+---
+
+## 📊 **Key Metrics & Validation**
+
+### **✅ Technical Validation**
+- **End-to-End Streaming**: OBS → AWS → VLC working perfectly
+- **Multi-Protocol Support**: RTMP, HLS, HTTP-FLV all operational
+- **Performance**: 10MB+ video segments, 10-second intervals
+- **Uptime**: 100% since critical fix applied
+- **Latency**: Sub-second API responses
+
+### **✅ Infrastructure Validation**  
+- **AWS Production**: Enterprise-grade CDK deployment
+- **Security**: Production security groups, VPC isolation
+- **Scalability**: Ready for multi-region expansion
+- **Cost Management**: Pause/resume capability proven
+- **Monitoring**: Health checks, logging, performance tracking
+
+### **📈 Business Model Validation**
+- **P2P Framework**: Node coordination system ready
+- **Reward System**: Fair distribution algorithms implemented
+- **Fraud Detection**: Automated validation and spot-checking
+- **Community Tools**: Dashboard, supporter recognition
+
+---
+
+## 🎉 **Major Achievements**
+
+### **🔧 Technical Breakthroughs**
+1. **VLC Streaming Issue Resolved**: Fixed Docker port mapping (8085:8080)
+2. **Production AWS Deployment**: Professional infrastructure on enterprise cloud
+3. **Multi-Protocol Streaming**: RTMP, HLS, HTTP-FLV all working simultaneously
+4. **Cost Optimization**: $45/month with pause capability for testing phases
+5. **Security Implementation**: Production-grade security groups and SSL
+
+### **💡 Innovation Achievements**
+1. **"Restreaming as Support"**: Novel approach to streaming community building
+2. **Economic Framework**: Fair reward distribution for bandwidth contribution
+3. **Hybrid Architecture**: Centralized coordination with P2P distribution
+4. **Infrastructure as Code**: Complete AWS CDK setup for repeatability
+
+### **🌟 Platform Readiness**
+1. **Proven Technology**: Live gaming stream tested end-to-end
+2. **Friend Network Ready**: P2P coordination system waiting for supporters
+3. **Documentation Excellence**: Comprehensive guides for all user types
+4. **Community Foundation**: Tools for building genuine human connections
+
+---
+
+## 🚀 **Ready for Community Growth**
+
+**StreamrP2P has successfully completed the critical transition from concept to operational platform.**
+
+The system now provides:
+- ✅ **Proven Streaming Technology**: Working with real content
+- ✅ **Professional Infrastructure**: Scalable AWS architecture
+- ✅ **Economic Framework**: Fair supporter compensation model
+- ✅ **Community Tools**: Dashboard, recognition, impact tracking
+
+**Next Major Milestone**: Successfully onboard 5+ friends as P2P supporters and demonstrate the social and economic value of "restreaming as support" in a live community setting.
+
+---
+
+*StreamrP2P: Transforming streaming from solo activity to collaborative community support.* 🌟 

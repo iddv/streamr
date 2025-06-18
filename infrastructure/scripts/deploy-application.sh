@@ -159,8 +159,8 @@ services:
     container_name: streamr-srs
     ports:
       - "1935:1935"  # RTMP
-      - "8080:8080"  # HTTP API
-      - "8085:8085"  # HTTP server for HLS/DASH
+      - "8080:8080"  # HTTP API  
+      - "8085:8080"  # HTTP server for HLS/DASH (external 8085 -> internal 8080)
     volumes:
       - ./srs.conf:/usr/local/srs/conf/srs.conf
     restart: unless-stopped
