@@ -5,26 +5,26 @@
 [![Infrastructure](https://img.shields.io/badge/Infrastructure-AWS%20CDK-orange)](infrastructure/)
 [![Database](https://img.shields.io/badge/Database-PostgreSQL-blue)](coordinator/)
 [![Streaming](https://img.shields.io/badge/Streaming-SRS-red)](ingest-server/)
-[![Status](https://img.shields.io/badge/Status-VPN%20Mesh%20Ready-brightgreen)](CURRENT_STATUS.md)
+[![Status](https://img.shields.io/badge/Status-Friends%20Testing%20Ready-brightgreen)](CURRENT_STATUS.md)
 
 ---
 
-## 🎯 **MAJOR BREAKTHROUGH: VPN Mesh Solution**
+## 🎯 **PLANNED: VPN Mesh Solution**
 
-**The Innovation**: Instead of fighting NAT traversal complexity, we're implementing a **self-hosted VPN mesh** that makes all friend nodes appear on the same private network. This eliminates router configuration, port forwarding, and platform compatibility issues.
+**The Next Innovation**: Instead of fighting NAT traversal complexity, we're planning to implement a **self-hosted VPN mesh** that would make all friend nodes appear on the same private network. This would eliminate router configuration, port forwarding, and platform compatibility issues.
 
-**The Approach**: **Headscale** (open-source Tailscale control server) + official Tailscale clients = zero-config P2P mesh networking.
+**The Planned Approach**: **Headscale** (open-source Tailscale control server) + official Tailscale clients = zero-config P2P mesh networking.
 
-### **Why This Changes Everything**
-- ✅ **No Router Configuration** - Eliminates the #1 user friction point
-- ✅ **Cross-Platform Ready** - Tailscale clients exist for all platforms
-- ✅ **Battle-Tested Networking** - Leverages mature NAT traversal technology
-- ✅ **Self-Hosted Control** - No ongoing costs, complete ownership
-- ✅ **True P2P Validation** - Perfect test of "video torrenting" concept
+### **Why This Would Change Everything**
+- 🔄 **No Router Configuration** - Would eliminate the #1 user friction point
+- 🔄 **Cross-Platform Ready** - Tailscale clients exist for all platforms
+- 🔄 **Battle-Tested Networking** - Would leverage mature NAT traversal technology
+- 🔄 **Self-Hosted Control** - No ongoing costs, complete ownership
+- 🔄 **True P2P Validation** - Perfect test of "video torrenting" concept
 
 ---
 
-## 🚀 **Current Status: Ready for VPN Validation**
+## 🚀 **Current Status: Friends Testing Ready**
 
 ### **✅ What's Working (Production Ready)**
 - **🏗️ AWS Infrastructure**: Fully automated CDK deployment
@@ -34,10 +34,10 @@
 - **📺 Streaming Server**: SRS server ready for RTMP/HLS
 - **🤝 Friend Setup**: Cross-platform scripts and documentation
 
-### **🔄 Next Phase: VPN Mesh Validation**
-**Goal**: Validate VPN mesh approach with real friends testing  
-**Timeline**: 4-6 hours total effort  
-**Plan**: [`docs/analysis/VPN_MESH_VALIDATION_PLAN.md`](docs/analysis/VPN_MESH_VALIDATION_PLAN.md)
+### **🔄 Next Phase: VPN Mesh Development**
+**Goal**: Implement and validate VPN mesh approach  
+**Timeline**: Future development phase  
+**Status**: Currently in planning/research phase
 
 ---
 
@@ -51,8 +51,14 @@ StreamrP2P is essentially "video torrenting" - distributing stream chunks across
 
 ### **Current Architecture**
 ```
+Streamer → Internet → Friend Nodes → Internet → Viewers
+          (Current: Direct connections with port forwarding)
+```
+
+### **Planned Architecture**
+```
 Streamer → [VPN Mesh] → Friend Nodes → [VPN Mesh] → Viewers
-          ✅ All nodes on same private network
+          (Future: All nodes on same private network)
 ```
 
 ### **The Economic Model**
@@ -77,11 +83,11 @@ Streamer → [VPN Mesh] → Friend Nodes → [VPN Mesh] → Viewers
 - **Streaming Server**: SRS with RTMP ingest and HLS output
 - **Monitoring**: Health checks and performance tracking
 
-### **Networking (New!)**
-- **Headscale**: Self-hosted VPN mesh control server
-- **Tailscale Clients**: Cross-platform VPN mesh participants
-- **WireGuard**: Underlying P2P encryption protocol
-- **DERP Relays**: Fallback for difficult NAT scenarios
+### **Networking (Planned)**
+- **Headscale**: Self-hosted VPN mesh control server (future development)
+- **Tailscale Clients**: Cross-platform VPN mesh participants (future integration)
+- **WireGuard**: Underlying P2P encryption protocol (future implementation)
+- **DERP Relays**: Fallback for difficult NAT scenarios (future feature)
 
 ---
 
@@ -107,12 +113,6 @@ npx cdk deploy streamr-p2p-beta-ireland-application --require-approval never
 ---
 
 ## 🎯 **Getting Started**
-
-### **For VPN Mesh Testing (Current Phase)**
-1. **Deploy Headscale**: Follow [`docs/analysis/VPN_MESH_VALIDATION_PLAN.md`](docs/analysis/VPN_MESH_VALIDATION_PLAN.md)
-2. **Install Tailscale**: Download from https://tailscale.com/download
-3. **Join Mesh**: Connect to self-hosted Headscale server
-4. **Test Streaming**: Stream over private mesh network
 
 ### **For Current Friend Testing**
 1. **Clone Repository**: `git clone https://github.com/iddv/streamr.git`
@@ -149,26 +149,28 @@ npx cdk deploy streamr-p2p-beta-ireland-application --require-approval never
 
 ## 🔮 **Roadmap**
 
-### **Phase 1: VPN Mesh Validation (This Week)**
+### **Phase 1: Current Friends Testing**
+- [x] Production AWS infrastructure
+- [x] Database performance optimization
+- [x] Streaming server deployment
+- [ ] Friend node testing and feedback
+- [ ] User experience improvements
+
+### **Phase 2: VPN Mesh Development (Planned)**
+- [ ] Research and design VPN mesh architecture
 - [ ] Deploy Headscale control server
 - [ ] Create VPN mesh setup scripts  
 - [ ] Test with local devices
 - [ ] Invite friends for real-world testing
 - [ ] Collect performance and UX data
 
-### **Phase 2A: Integration (If VPN Succeeds)**
+### **Phase 3: Integration (If VPN Succeeds)**
 - [ ] Embed WireGuard in custom client
 - [ ] Auto-configuration for mesh joining
 - [ ] Single executable deployment
 - [ ] Bandwidth limits and monitoring
 
-### **Phase 2B: Alternative (If VPN Partial)**
-- [ ] Custom installer for Tailscale setup
-- [ ] Guided setup wizard
-- [ ] Multiple connection strategies
-- [ ] Fallback relay options
-
-### **Phase 3: Production Scale**
+### **Phase 4: Production Scale**
 - [ ] Native apps for all platforms
 - [ ] One-click setup experience
 - [ ] Advanced economic models
@@ -178,17 +180,17 @@ npx cdk deploy streamr-p2p-beta-ireland-application --require-approval never
 
 ## 🤝 **Contributing**
 
-### **Current Focus: VPN Mesh Validation**
-We're actively testing the VPN mesh approach and need:
-- **Friends for Testing**: Help validate real-world performance
-- **Platform Testing**: Windows, Mac, Linux, mobile compatibility
-- **Network Conditions**: Different ISPs, corporate networks, mobile
+### **Current Focus: Friends Testing**
+We're actively testing the current platform and need:
+- **Friends for Testing**: Help validate real-world performance with current setup
+- **Platform Testing**: Windows, Mac, Linux compatibility
+- **Network Conditions**: Different ISPs, NAT configurations
 - **UX Feedback**: Documentation clarity and setup complexity
 
 ### **Development Areas**
 - **Infrastructure**: AWS CDK improvements and cost optimization
 - **Backend**: API enhancements and database scaling
-- **Networking**: VPN mesh integration and P2P protocols
+- **Networking**: Planning VPN mesh integration and P2P protocols
 - **Frontend**: Dashboard improvements and user experience
 
 ### **Getting Involved**
@@ -207,7 +209,7 @@ We're actively testing the VPN mesh approach and need:
 - [`LOCAL_TESTING_GUIDE.md`](LOCAL_TESTING_GUIDE.md) - Local development setup
 
 ### **Technical Documentation**
-- [`docs/analysis/VPN_MESH_VALIDATION_PLAN.md`](docs/analysis/VPN_MESH_VALIDATION_PLAN.md) - VPN mesh implementation plan
+- [`docs/analysis/VPN_MESH_VALIDATION_PLAN.md`](docs/analysis/VPN_MESH_VALIDATION_PLAN.md) - VPN mesh planning (future development)
 - [`docs/aws-deployment/AWS_DEPLOYMENT_GUIDE.md`](docs/aws-deployment/AWS_DEPLOYMENT_GUIDE.md) - Infrastructure deployment
 - [`ARCHITECTURE_ANALYSIS_REPORT.md`](ARCHITECTURE_ANALYSIS_REPORT.md) - System architecture overview
 
