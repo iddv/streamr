@@ -304,8 +304,22 @@ export class GitHubOidcStack extends cdk.Stack {
       ],
       resources: [
         `arn:aws:ssm:${this.region}:${this.account}:parameter/streamr/*`,
+        `arn:aws:ssm:${this.region}:${this.account}:parameter/cdk-bootstrap/*`, // CDK bootstrap parameters
         `arn:aws:ssm:${this.region}:${this.account}:document/AWS-*`,
         `arn:aws:ec2:${this.region}:${this.account}:instance/*`,
+      ],
+    }));
+
+    // STS permissions for CDK deployment roles
+    this.githubActionsRole.addToPolicy(new iam.PolicyStatement({
+      sid: 'STSAssumeRolePermissions',
+      effect: iam.Effect.ALLOW,
+      actions: [
+        'sts:AssumeRole',
+        'sts:TagSession',
+      ],
+      resources: [
+        `arn:aws:iam::${this.account}:role/cdk-*`, // CDK bootstrap roles
       ],
     }));
 
