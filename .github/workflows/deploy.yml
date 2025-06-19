@@ -46,6 +46,16 @@ jobs:
           cache: 'npm'
           cache-dependency-path: infrastructure/package-lock.json
 
+      - name: Debug Environment
+        run: |
+          echo "🔍 Debug Information:"
+          echo "Stage: ${{ github.event.inputs.stage || 'beta' }}"
+          echo "AWS Region: ${{ env.AWS_REGION }}"
+          echo "Beta Account ID: ${{ vars.AWS_ACCOUNT_ID_BETA }}"
+          echo "Prod Account ID: ${{ vars.AWS_ACCOUNT_ID_PROD }}"
+          echo "GitHub Run ID: ${{ github.run_id }}"
+          echo "GitHub Ref: ${{ github.ref }}"
+
       - name: Configure AWS credentials using OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -78,36 +88,41 @@ jobs:
         working-directory: infrastructure
         run: |
           # Check if OIDC stack exists, deploy if not
-          if ! aws cloudformation describe-stacks --stack-name streamr-beta-github-oidc 2>/dev/null; then
-            echo "🔐 Deploying GitHub OIDC stack..."
-            npx cdk deploy streamr-beta-github-oidc --require-approval never
+          STAGE=${{ github.event.inputs.stage || 'beta' }}
+          OIDC_STACK_NAME="streamr-p2p-$STAGE-ireland-github-oidc"
+          if ! aws cloudformation describe-stacks --stack-name "$OIDC_STACK_NAME" 2>/dev/null; then
+            echo "🔐 Deploying GitHub OIDC stack: $OIDC_STACK_NAME"
+            npx cdk deploy "$OIDC_STACK_NAME" --require-approval never
           else
-            echo "✅ GitHub OIDC stack already exists"
+            echo "✅ GitHub OIDC stack already exists: $OIDC_STACK_NAME"
           fi
 
       - name: Deploy Foundation Stack
         working-directory: infrastructure
         run: |
           STAGE=${{ github.event.inputs.stage || 'beta' }}
-          echo "🏗️ Deploying foundation stack for stage: $STAGE"
-          npx cdk deploy streamr-$STAGE-foundation --require-approval never --context stage=$STAGE
+          FOUNDATION_STACK_NAME="streamr-p2p-$STAGE-ireland-foundation"
+          echo "🏗️ Deploying foundation stack: $FOUNDATION_STACK_NAME"
+          npx cdk deploy "$FOUNDATION_STACK_NAME" --require-approval never --context stage=$STAGE
 
       - name: Deploy Application Stack
         working-directory: infrastructure
         run: |
           STAGE=${{ github.event.inputs.stage || 'beta' }}
-          echo "🚀 Deploying application stack for stage: $STAGE"
-          npx cdk deploy streamr-$STAGE-application --require-approval never --context stage=$STAGE
+          APPLICATION_STACK_NAME="streamr-p2p-$STAGE-ireland-application"
+          echo "🚀 Deploying application stack: $APPLICATION_STACK_NAME"
+          npx cdk deploy "$APPLICATION_STACK_NAME" --require-approval never --context stage=$STAGE
 
       - name: Output deployment info
         working-directory: infrastructure
         run: |
           STAGE=${{ github.event.inputs.stage || 'beta' }}
+          APPLICATION_STACK_NAME="streamr-p2p-$STAGE-ireland-application"
           echo "📊 Deployment completed for stage: $STAGE"
           
           # Get ALB DNS name
           ALB_DNS=$(aws cloudformation describe-stacks \
-            --stack-name streamr-$STAGE-application \
+            --stack-name "$APPLICATION_STACK_NAME" \
             --query 'Stacks[0].Outputs[?OutputKey==`LoadBalancerDnsName`].OutputValue' \
             --output text)
           
@@ -146,11 +161,12 @@ jobs:
         working-directory: infrastructure
         run: |
           STAGE=${{ github.event.inputs.stage || 'beta' }}
+          APPLICATION_STACK_NAME="streamr-p2p-$STAGE-ireland-application"
           echo "🧪 Running sanity tests for stage: $STAGE"
           
           # Get ALB DNS name
           ALB_DNS=$(aws cloudformation describe-stacks \
-            --stack-name streamr-$STAGE-application \
+            --stack-name "$APPLICATION_STACK_NAME" \
             --query 'Stacks[0].Outputs[?OutputKey==`LoadBalancerDnsName`].OutputValue' \
             --output text)
           
