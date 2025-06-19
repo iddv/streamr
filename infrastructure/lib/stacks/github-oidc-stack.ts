@@ -59,7 +59,6 @@ export class GitHubOidcStack extends cdk.Stack {
         'cloudformation:DescribeStackResources',
         'cloudformation:GetTemplate',
         'cloudformation:ValidateTemplate',
-        'cloudformation:ListStacks',
         'cloudformation:CreateChangeSet',
         'cloudformation:DescribeChangeSet',
         'cloudformation:ExecuteChangeSet',
@@ -71,6 +70,16 @@ export class GitHubOidcStack extends cdk.Stack {
         `arn:aws:cloudformation:${this.region}:${this.account}:stack/streamr-*/*`,
         `arn:aws:cloudformation:${this.region}:${this.account}:changeset/streamr-*/*`,
       ],
+    }));
+
+    // CloudFormation ListStacks requires * resource permission (for debugging)
+    this.githubActionsRole.addToPolicy(new iam.PolicyStatement({
+      sid: 'CloudFormationListPermissions',
+      effect: iam.Effect.ALLOW,
+      actions: [
+        'cloudformation:ListStacks',
+      ],
+      resources: ['*'],
     }));
 
     this.githubActionsRole.addToPolicy(new iam.PolicyStatement({
