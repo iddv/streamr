@@ -1,101 +1,165 @@
-name: 🚀 Deploy StreamrP2P
+name: Deploy StreamrP2P Infrastructure
 
 on:
   push:
     branches: [ main ]
+    paths:
+      - 'infrastructure/**'
+      - 'coordinator/**'
+      - '.github/workflows/deploy.yml'
   pull_request:
     branches: [ main ]
-  workflow_dispatch:  # Manual trigger
+    paths:
+      - 'infrastructure/**'
+      - 'coordinator/**'
+  workflow_dispatch:
+    inputs:
+      stage:
+        description: 'Deployment stage'
+        required: true
+        default: 'beta'
+        type: choice
+        options:
+          - beta
+          - prod
 
 env:
   AWS_REGION: eu-west-1
-  STAGE: beta
+  CDK_DEFAULT_REGION: eu-west-1
+
+# These permissions are needed to interact with GitHub's OIDC Token endpoint
+permissions:
+  id-token: write   # This is required for requesting the JWT
+  contents: read    # This is required for actions/checkout
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    
     steps:
-    - name: 📥 Checkout code
-      uses: actions/checkout@v4
-      
-    - name: 🔧 Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ env.AWS_REGION }}
-        
-    - name: 📦 Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '18'
-        cache: 'npm'
-        cache-dependency-path: infrastructure/package-lock.json
-        
-    - name: 🏗️ Install CDK dependencies
-      run: |
-        cd infrastructure
-        npm ci
-        
-    - name: 🔨 Build CDK
-      run: |
-        cd infrastructure
-        npm run build
-        
-    - name: 🚀 Deploy Infrastructure (CDK)
-      run: |
-        cd infrastructure
-        npx cdk deploy --all \
-          --context stage=${{ env.STAGE }} \
-          --context region=${{ env.AWS_REGION }} \
-          --require-approval never \
-          --outputs-file cdk-outputs.json
-          
-    - name: 📱 Deploy Application
-      run: |
-        # Get instance IP from CDK outputs
-        INSTANCE_IP=$(jq -r '.["streamr-p2p-'$STAGE'-'$AWS_REGION'-application"].InstancePublicIP' infrastructure/cdk-outputs.json)
-        
-        # Wait for instance to be ready
-        echo "Waiting for instance $INSTANCE_IP to be ready..."
-        sleep 60
-        
-        # Deploy application code
-        cd coordinator
-        tar czf streamr-app.tar.gz app/ requirements.txt Dockerfile docker-compose.yml
-        
-        # Copy to S3 (cheap storage, simple deployment)
-        aws s3 cp streamr-app.tar.gz s3://streamr-deployments-$STAGE/
-        
-        # Trigger deployment on instance via SSM (no SSH needed!)
-        aws ssm send-command \
-          --instance-ids $(jq -r '.["streamr-p2p-'$STAGE'-'$AWS_REGION'-application"].InstanceId' ../infrastructure/cdk-outputs.json) \
-          --document-name "AWS-RunShellScript" \
-          --parameters 'commands=[
-            "cd /opt/streamr-coordinator",
-            "aws s3 cp s3://streamr-deployments-'$STAGE'/streamr-app.tar.gz .",
-            "tar xzf streamr-app.tar.gz",
-            "docker-compose down || true",
-            "docker-compose up -d --build"
-          ]'
-          
-    - name: 🧪 Test Deployment
-      run: |
-        INSTANCE_IP=$(jq -r '.["streamr-p2p-'$STAGE'-'$AWS_REGION'-application"].InstancePublicIP' infrastructure/cdk-outputs.json)
-        
-        # Wait for application to start
-        sleep 30
-        
-        # Test health endpoint
-        for i in {1..5}; do
-          if curl -f "http://$INSTANCE_IP:8000/health"; then
-            echo "✅ Health check passed"
-            exit 0
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: infrastructure/package-lock.json
+
+      - name: Configure AWS credentials using OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID_BETA }}:role/streamr-github-actions-role
+          role-session-name: streamr-github-actions-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+        if: github.event.inputs.stage == 'beta' || github.event.inputs.stage == ''
+
+      - name: Configure AWS credentials for Production
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID_PROD }}:role/streamr-github-actions-role
+          role-session-name: streamr-github-actions-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+        if: github.event.inputs.stage == 'prod'
+
+      - name: Install CDK dependencies
+        working-directory: infrastructure
+        run: npm ci
+
+      - name: Build CDK app
+        working-directory: infrastructure
+        run: npm run build
+
+      - name: Run CDK tests
+        working-directory: infrastructure
+        run: npm test
+
+      - name: Deploy GitHub OIDC Stack (if needed)
+        working-directory: infrastructure
+        run: |
+          # Check if OIDC stack exists, deploy if not
+          if ! aws cloudformation describe-stacks --stack-name streamr-beta-github-oidc 2>/dev/null; then
+            echo "🔐 Deploying GitHub OIDC stack..."
+            npx cdk deploy streamr-beta-github-oidc --require-approval never
+          else
+            echo "✅ GitHub OIDC stack already exists"
           fi
-          echo "Retrying health check in 30s..."
-          sleep 30
-        done
-        
-        echo "❌ Health check failed"
-        exit 1 
+
+      - name: Deploy Foundation Stack
+        working-directory: infrastructure
+        run: |
+          STAGE=${{ github.event.inputs.stage || 'beta' }}
+          echo "🏗️ Deploying foundation stack for stage: $STAGE"
+          npx cdk deploy streamr-$STAGE-foundation --require-approval never --context stage=$STAGE
+
+      - name: Deploy Application Stack
+        working-directory: infrastructure
+        run: |
+          STAGE=${{ github.event.inputs.stage || 'beta' }}
+          echo "🚀 Deploying application stack for stage: $STAGE"
+          npx cdk deploy streamr-$STAGE-application --require-approval never --context stage=$STAGE
+
+      - name: Output deployment info
+        working-directory: infrastructure
+        run: |
+          STAGE=${{ github.event.inputs.stage || 'beta' }}
+          echo "📊 Deployment completed for stage: $STAGE"
+          
+          # Get ALB DNS name
+          ALB_DNS=$(aws cloudformation describe-stacks \
+            --stack-name streamr-$STAGE-application \
+            --query 'Stacks[0].Outputs[?OutputKey==`LoadBalancerDnsName`].OutputValue' \
+            --output text)
+          
+          echo "🌐 Application Load Balancer: $ALB_DNS"
+          echo "🎬 RTMP Ingest: rtmp://$ALB_DNS:1935/live/"
+          echo "📺 HLS Playback: http://$ALB_DNS:8085/live/"
+          echo "📊 Dashboard: http://$ALB_DNS/dashboard"
+          echo "🏆 Leaderboard: http://$ALB_DNS/leaderboard"
+          echo "💰 Payouts: http://$ALB_DNS/payouts"
+
+  post-deploy-tests:
+    needs: deploy
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials using OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID_BETA }}:role/streamr-github-actions-role
+          role-session-name: streamr-post-deploy-tests-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+        if: github.event.inputs.stage == 'beta' || github.event.inputs.stage == ''
+
+      - name: Configure AWS credentials for Production
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID_PROD }}:role/streamr-github-actions-role
+          role-session-name: streamr-post-deploy-tests-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+        if: github.event.inputs.stage == 'prod'
+
+      - name: Run sanity tests
+        working-directory: infrastructure
+        run: |
+          STAGE=${{ github.event.inputs.stage || 'beta' }}
+          echo "🧪 Running sanity tests for stage: $STAGE"
+          
+          # Get ALB DNS name
+          ALB_DNS=$(aws cloudformation describe-stacks \
+            --stack-name streamr-$STAGE-application \
+            --query 'Stacks[0].Outputs[?OutputKey==`LoadBalancerDnsName`].OutputValue' \
+            --output text)
+          
+          # Test health endpoint
+          echo "Testing health endpoint..."
+          curl -f "http://$ALB_DNS/health" || exit 1
+          
+          # Test dashboard endpoint
+          echo "Testing dashboard endpoint..."
+          curl -f "http://$ALB_DNS/dashboard" || exit 1
+          
+          echo "✅ All sanity tests passed!" 
