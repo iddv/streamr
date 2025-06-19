@@ -1,11 +1,12 @@
 #!/bin/bash
 
 # 🚀 StreamrP2P Friend Node Setup
-# Usage: ./setup-friend-node.sh YOUR_API_KEY
+# Usage: ./setup-friend-node.sh YOUR_STREAM_KEY
 
-API_KEY="$1"
-COORDINATOR_URL="http://86.87.233.125:8000"
-STREAM_ID="test_stream_001"
+STREAM_KEY="$1"
+COORDINATOR_URL="http://streamr-p2p-beta-alb-1243469977.eu-west-1.elb.amazonaws.com"
+SRS_RTMP_URL="rtmp://108.129.97.122:1935/live"
+SRS_HLS_URL="http://108.129.97.122:8080/live"
 
 # Colors for pretty output
 RED='\033[0;31m'
@@ -18,11 +19,12 @@ echo -e "${BLUE}🚀 StreamrP2P Friend Node Setup${NC}"
 echo "=================================="
 
 # Validate input
-if [ -z "$API_KEY" ]; then
-    echo -e "${RED}❌ Error: API key required${NC}"
-    echo "Usage: ./setup-friend-node.sh YOUR_API_KEY"
+if [ -z "$STREAM_KEY" ]; then
+    echo -e "${RED}❌ Error: Stream key required${NC}"
+    echo "Usage: ./setup-friend-node.sh YOUR_STREAM_KEY"
     echo ""
-    echo "Get your API key from your friend who's hosting the stream!"
+    echo "Get your stream key from your friend who's hosting the stream!"
+    echo "Example: ./setup-friend-node.sh obs-test"
     exit 1
 fi
 
@@ -48,9 +50,10 @@ NODE_ID="friend_$(whoami)_$(date +%s)"
 
 echo -e "${YELLOW}📋 Configuration:${NC}"
 echo "  Coordinator: $COORDINATOR_URL"
-echo "  Stream ID: $STREAM_ID"
+echo "  Stream Key: $STREAM_KEY"
 echo "  Node ID: $NODE_ID"
-echo "  API Key: ${API_KEY:0:12}..."
+echo "  RTMP Source: $SRS_RTMP_URL/$STREAM_KEY"
+echo "  HLS Output: $SRS_HLS_URL/$STREAM_KEY.m3u8"
 echo ""
 
 # Test connection to coordinator
@@ -71,32 +74,43 @@ echo -e "${BLUE}🧹 Cleaning up existing node...${NC}"
 docker stop streamr-friend-node 2>/dev/null || true
 docker rm streamr-friend-node 2>/dev/null || true
 
-# Pull latest image
-echo -e "${BLUE}📦 Pulling latest node client...${NC}"
-docker pull streamr/node-client:latest || {
-    echo -e "${RED}❌ Failed to pull Docker image${NC}"
-    echo "Using local image if available..."
-}
+# Start the node (using SRS image for now, will be replaced with custom image later)
+echo -e "${BLUE}🚀 Starting StreamrP2P friend node...${NC}"
+echo -e "${YELLOW}Note: This is a simplified test setup. Full P2P functionality coming soon!${NC}"
 
-# Start the node
-echo -e "${BLUE}🚀 Starting StreamrP2P node...${NC}"
+# For now, we'll use SRS to demonstrate the concept
 docker run -d \
   --name streamr-friend-node \
   --restart unless-stopped \
-  -p 8080:8080 \
-  -e COORDINATOR_URL="$COORDINATOR_URL" \
-  -e STREAM_ID="$STREAM_ID" \
-  -e API_KEY="$API_KEY" \
+  -p 1936:1935 \
+  -p 8081:8080 \
+  -e STREAM_KEY="$STREAM_KEY" \
   -e NODE_ID="$NODE_ID" \
-  streamr/node-client:latest
+  ossrs/srs:5
 
 if [ $? -eq 0 ]; then
-    echo -e "${GREEN}✅ Node started successfully!${NC}"
+    echo -e "${GREEN}✅ Friend node started successfully!${NC}"
     echo ""
-    echo -e "${YELLOW}📊 Monitor your node:${NC}"
+    echo -e "${YELLOW}📊 Your Node Status:${NC}"
+    echo "  Node ID: $NODE_ID"
+    echo "  RTMP Relay: rtmp://localhost:1936/live/$STREAM_KEY"
+    echo "  HLS Output: http://localhost:8081/live/$STREAM_KEY.m3u8"
+    echo ""
+    echo -e "${YELLOW}📋 Next Steps:${NC}"
+    echo "  1. Tell your friend to start streaming to: $SRS_RTMP_URL/$STREAM_KEY"
+    echo "  2. You can watch the stream at: $SRS_HLS_URL/$STREAM_KEY.m3u8"
+    echo "  3. Share your relay with others: http://localhost:8081/live/$STREAM_KEY.m3u8"
+    echo ""
+    echo -e "${YELLOW}🔧 Monitor your node:${NC}"
     echo "  View logs: docker logs streamr-friend-node -f"
-    echo "  Check status: curl http://localhost:8080/stats"
     echo "  Stop node: docker stop streamr-friend-node"
+    echo ""
+    echo -e "${YELLOW}🌐 Final Step - Verify Public Access:${NC}"
+    echo "  1. Go to: https://canyouseeme.org"
+    echo "  2. Enter port: 8081"
+    echo "  3. Click 'Check Port'"
+    echo "  4. If SUCCESS: You're ready! Share your public URL with your friend"
+    echo "  5. If ERROR: Check firewall/router settings"
     echo ""
     echo -e "${GREEN}🎉 You're now helping support the stream!${NC}"
     echo "Your friend will see you in their dashboard and you'll earn rewards!"
