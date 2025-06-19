@@ -123,7 +123,7 @@ jobs:
           # Get ALB DNS name
           ALB_DNS=$(aws cloudformation describe-stacks \
             --stack-name "$APPLICATION_STACK_NAME" \
-            --query 'Stacks[0].Outputs[?OutputKey==`LoadBalancerDnsName`].OutputValue' \
+            --query 'Stacks[0].Outputs[?OutputKey==`LoadBalancerDNS`].OutputValue' \
             --output text)
           
           echo "🌐 Application Load Balancer: $ALB_DNS"
@@ -163,19 +163,47 @@ jobs:
           STAGE=${{ github.event.inputs.stage || 'beta' }}
           APPLICATION_STACK_NAME="streamr-p2p-$STAGE-ireland-application"
           echo "🧪 Running sanity tests for stage: $STAGE"
+          echo "📋 Stack name: $APPLICATION_STACK_NAME"
           
-          # Get ALB DNS name
+          # Debug: List all stacks to see what exists
+          echo "🔍 Available CloudFormation stacks:"
+          aws cloudformation list-stacks --stack-status-filter CREATE_COMPLETE UPDATE_COMPLETE --query 'StackSummaries[].StackName' --output table
+          
+          # Get ALB DNS name with debugging
+          echo "🔍 Getting ALB DNS name from stack outputs..."
           ALB_DNS=$(aws cloudformation describe-stacks \
             --stack-name "$APPLICATION_STACK_NAME" \
-            --query 'Stacks[0].Outputs[?OutputKey==`LoadBalancerDnsName`].OutputValue' \
-            --output text)
+            --query 'Stacks[0].Outputs[?OutputKey==`LoadBalancerDNS`].OutputValue' \
+            --output text 2>/dev/null || echo "")
+          
+          echo "🌐 ALB DNS: '$ALB_DNS'"
+          
+          if [ -z "$ALB_DNS" ] || [ "$ALB_DNS" = "None" ]; then
+            echo "❌ ALB DNS name not found. Checking all stack outputs:"
+            aws cloudformation describe-stacks --stack-name "$APPLICATION_STACK_NAME" --query 'Stacks[0].Outputs' --output table || echo "Stack not found"
+            exit 1
+          fi
           
           # Test health endpoint
-          echo "Testing health endpoint..."
-          curl -f "http://$ALB_DNS/health" || exit 1
+          echo "🔍 Testing health endpoint: http://$ALB_DNS/health"
+          if curl -f --connect-timeout 30 --max-time 60 "http://$ALB_DNS/health"; then
+            echo "✅ Health endpoint responded"
+          else
+            echo "❌ Health endpoint failed"
+            echo "🔍 Trying to get more info about the ALB..."
+            curl -v "http://$ALB_DNS/health" || true
+            exit 1
+          fi
           
-          # Test dashboard endpoint
-          echo "Testing dashboard endpoint..."
-          curl -f "http://$ALB_DNS/dashboard" || exit 1
+          # Test dashboard endpoint  
+          echo "🔍 Testing dashboard endpoint: http://$ALB_DNS/dashboard"
+          if curl -f --connect-timeout 30 --max-time 60 "http://$ALB_DNS/dashboard"; then
+            echo "✅ Dashboard endpoint responded"
+          else
+            echo "❌ Dashboard endpoint failed"
+            echo "🔍 Trying to get more info about the ALB..."
+            curl -v "http://$ALB_DNS/dashboard" || true
+            exit 1
+          fi
           
           echo "✅ All sanity tests passed!" 
