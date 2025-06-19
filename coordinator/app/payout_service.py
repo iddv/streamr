@@ -1,7 +1,8 @@
 import logging
+import time
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
-from sqlalchemy import and_, func
+from sqlalchemy import and_, func, case
 from typing import Dict, List
 
 from . import models, database
@@ -9,14 +10,27 @@ from . import models, database
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Performance monitoring decorator
+def monitor_query_performance(func):
+    def wrapper(*args, **kwargs):
+        start_time = time.time()
+        result = func(*args, **kwargs)
+        duration = time.time() - start_time
+        logger.info(f"Query {func.__name__} took {duration:.3f}s")
+        return result
+    return wrapper
+
 class PayoutService:
     def __init__(self):
-        pass
+        # Configurable penalty factor (0.5 = 50% penalty per failure)
+        self.PENALTY_FACTOR = 0.5
     
+    @monitor_query_performance
     def calculate_payouts(self, hours_back: int = 1) -> Dict[str, Dict]:
         """
         Calculate payouts for the last N hours based on probe results.
-        Returns a dictionary of {stream_id: {node_id: payout_info}}
+        Uses contribution-weighted model with graduated penalties.
+        OPTIMIZED: Single query instead of N+1 queries per stream.
         """
         db = database.SessionLocal()
         try:
@@ -32,84 +46,86 @@ class PayoutService:
             for stream in active_streams:
                 logger.info(f"Calculating payouts for stream: {stream.stream_id}")
                 
-                # Get all nodes that participated in this stream
-                participating_nodes = db.query(models.Node.node_id).filter(
-                    and_(
-                        models.Node.stream_id == stream.stream_id,
-                        models.Node.created_at <= datetime.utcnow()
-                    )
-                ).distinct().all()
+                # OPTIMIZED: Single query to get all node stats for this stream
+                # This replaces the N+1 query pattern with one efficient query
+                node_stats = db.query(
+                    models.ProbeResult.node_id,
+                    func.count(
+                        case([(models.ProbeResult.probe_type == 'stats_poll', 1)], else_=None)
+                    ).label('total_polls'),
+                    func.count(
+                        case([
+                            (and_(
+                                models.ProbeResult.probe_type == 'stats_poll',
+                                models.ProbeResult.success == True
+                            ), 1)
+                        ], else_=None)
+                    ).label('successful_polls'),
+                    func.count(
+                        case([
+                            (and_(
+                                models.ProbeResult.probe_type == 'spot_check',
+                                models.ProbeResult.success == False
+                            ), 1)
+                        ], else_=None)
+                    ).label('failed_spot_checks')
+                ).filter(
+                    models.ProbeResult.stream_id == stream.stream_id,
+                    models.ProbeResult.probe_timestamp > cutoff_time
+                ).group_by(models.ProbeResult.node_id).all()
+                
+                if not node_stats:
+                    logger.info(f"No participating node stats for stream {stream.stream_id}")
+                    continue
+                
+                # Calculate total successful probes across all nodes (for contribution weighting)
+                total_successful_probes = sum(stats.successful_polls for stats in node_stats)
+                
+                if total_successful_probes == 0:
+                    logger.info(f"No successful probes for stream {stream.stream_id}")
+                    continue
                 
                 node_payouts = {}
                 total_pool = stream.token_balance
                 
-                if not participating_nodes:
-                    logger.info(f"No participating nodes for stream {stream.stream_id}")
-                    continue
-                
-                for (node_id,) in participating_nodes:
-                    # Calculate uptime percentage based on successful stats polls
-                    total_polls = db.query(models.ProbeResult).filter(
-                        and_(
-                            models.ProbeResult.stream_id == stream.stream_id,
-                            models.ProbeResult.node_id == node_id,
-                            models.ProbeResult.probe_type == "stats_poll",
-                            models.ProbeResult.probe_timestamp > cutoff_time
-                        )
-                    ).count()
+                for stats in node_stats:
+                    # Contribution-weighted payout model
+                    contribution_percentage = stats.successful_polls / total_successful_probes
+                    base_payout = total_pool * contribution_percentage
                     
-                    successful_polls = db.query(models.ProbeResult).filter(
-                        and_(
-                            models.ProbeResult.stream_id == stream.stream_id,
-                            models.ProbeResult.node_id == node_id,
-                            models.ProbeResult.probe_type == "stats_poll",
-                            models.ProbeResult.success == True,
-                            models.ProbeResult.probe_timestamp > cutoff_time
-                        )
-                    ).count()
+                    # Graduated penalty model (more fair than zero-tolerance)
+                    penalty_multiplier = (1 - self.PENALTY_FACTOR) ** stats.failed_spot_checks
+                    final_payout = base_payout * penalty_multiplier
                     
-                    # Check for fraud (failed spot checks)
-                    failed_spot_checks = db.query(models.ProbeResult).filter(
-                        and_(
-                            models.ProbeResult.stream_id == stream.stream_id,
-                            models.ProbeResult.node_id == node_id,
-                            models.ProbeResult.probe_type == "spot_check",
-                            models.ProbeResult.success == False,
-                            models.ProbeResult.probe_timestamp > cutoff_time
-                        )
-                    ).count()
+                    # Calculate uptime percentage for display
+                    uptime_percentage = (stats.successful_polls / stats.total_polls) if stats.total_polls > 0 else 0
                     
-                    # Calculate metrics
-                    uptime_percentage = (successful_polls / total_polls) if total_polls > 0 else 0
-                    is_flagged = failed_spot_checks > 0
-                    
-                    # Calculate base payout (equal share of pool based on uptime)
-                    base_payout = (total_pool / len(participating_nodes)) * uptime_percentage
-                    
-                    # Apply fraud penalty (zero payout if flagged)
-                    final_payout = 0 if is_flagged else base_payout
-                    
-                    node_payouts[node_id] = {
+                    node_payouts[stats.node_id] = {
                         "base_payout": base_payout,
                         "final_payout": final_payout,
+                        "contribution_percentage": contribution_percentage,
                         "uptime_percentage": uptime_percentage,
-                        "total_polls": total_polls,
-                        "successful_polls": successful_polls,
-                        "failed_spot_checks": failed_spot_checks,
-                        "is_flagged": is_flagged,
-                        "penalty_reason": "Failed spot check" if is_flagged else None
+                        "total_polls": stats.total_polls,
+                        "successful_polls": stats.successful_polls,
+                        "failed_spot_checks": stats.failed_spot_checks,
+                        "penalty_multiplier": penalty_multiplier,
+                        "is_flagged": stats.failed_spot_checks > 0,
+                        "penalty_reason": f"{stats.failed_spot_checks} failed spot checks" if stats.failed_spot_checks > 0 else None
                     }
                     
-                    logger.info(f"Node {node_id}: {uptime_percentage:.1%} uptime, "
-                              f"{final_payout:.2f} tokens" + 
-                              (f" (FLAGGED)" if is_flagged else ""))
+                    logger.info(f"Node {stats.node_id}: {contribution_percentage:.1%} contribution, "
+                              f"{uptime_percentage:.1%} uptime, {final_payout:.2f} tokens" + 
+                              (f" (penalty: {penalty_multiplier:.2f})" if stats.failed_spot_checks > 0 else ""))
                 
                 payout_data[stream.stream_id] = {
                     "stream_info": {
                         "stream_id": stream.stream_id,
                         "sponsor": stream.sponsor_address,
                         "total_pool": total_pool,
-                        "calculation_period": f"Last {hours_back} hour(s)"
+                        "total_successful_probes": total_successful_probes,
+                        "active_nodes": len(node_stats),
+                        "calculation_period": f"Last {hours_back} hour(s)",
+                        "payout_model": "contribution-weighted"
                     },
                     "node_payouts": node_payouts
                 }
@@ -119,72 +135,76 @@ class PayoutService:
         finally:
             db.close()
     
+    @monitor_query_performance 
     def get_node_earnings_summary(self, node_id: str, days_back: int = 7) -> Dict:
-        """Get earnings summary for a specific node"""
+        """Get earnings summary for a specific node - OPTIMIZED VERSION"""
         db = database.SessionLocal()
         try:
             cutoff_time = datetime.utcnow() - timedelta(days=days_back)
             
-            # Get all streams this node participated in
-            participated_streams = db.query(models.Node.stream_id).filter(
-                and_(
-                    models.Node.node_id == node_id,
-                    models.Node.created_at > cutoff_time
-                )
-            ).distinct().all()
+            # OPTIMIZED: Single query to get all node performance across streams
+            stream_stats = db.query(
+                models.ProbeResult.stream_id,
+                func.count(
+                    case([(models.ProbeResult.probe_type == 'stats_poll', 1)], else_=None)
+                ).label('total_polls'),
+                func.count(
+                    case([
+                        (and_(
+                            models.ProbeResult.probe_type == 'stats_poll',
+                            models.ProbeResult.success == True
+                        ), 1)
+                    ], else_=None)
+                ).label('successful_polls'),
+                func.count(
+                    case([
+                        (and_(
+                            models.ProbeResult.probe_type == 'spot_check',
+                            models.ProbeResult.success == False
+                        ), 1)
+                    ], else_=None)
+                ).label('failed_spot_checks')
+            ).filter(
+                models.ProbeResult.node_id == node_id,
+                models.ProbeResult.probe_timestamp > cutoff_time
+            ).group_by(models.ProbeResult.stream_id).all()
             
             total_earnings = 0
             stream_details = []
             
-            for (stream_id,) in participated_streams:
-                # Calculate earnings for this stream (simplified)
+            for stats in stream_stats:
+                # Get stream info
                 stream = db.query(models.Stream).filter(
-                    models.Stream.stream_id == stream_id
+                    models.Stream.stream_id == stats.stream_id
                 ).first()
                 
                 if not stream:
                     continue
                 
-                # Get performance metrics
-                total_polls = db.query(models.ProbeResult).filter(
-                    and_(
-                        models.ProbeResult.stream_id == stream_id,
-                        models.ProbeResult.node_id == node_id,
-                        models.ProbeResult.probe_type == "stats_poll",
-                        models.ProbeResult.probe_timestamp > cutoff_time
-                    )
-                ).count()
+                uptime = (stats.successful_polls / stats.total_polls) if stats.total_polls > 0 else 0
                 
-                successful_polls = db.query(models.ProbeResult).filter(
-                    and_(
-                        models.ProbeResult.stream_id == stream_id,
-                        models.ProbeResult.node_id == node_id,
-                        models.ProbeResult.probe_type == "stats_poll",
-                        models.ProbeResult.success == True,
-                        models.ProbeResult.probe_timestamp > cutoff_time
-                    )
-                ).count()
-                
-                uptime = (successful_polls / total_polls) if total_polls > 0 else 0
-                
-                # Simplified earnings calculation
-                estimated_earnings = (stream.token_balance * 0.1) * uptime  # 10% of pool * uptime
+                # Simplified earnings calculation for summary
+                penalty_multiplier = (1 - self.PENALTY_FACTOR) ** stats.failed_spot_checks
+                estimated_earnings = (stream.token_balance * 0.1) * uptime * penalty_multiplier
                 total_earnings += estimated_earnings
                 
                 stream_details.append({
-                    "stream_id": stream_id,
+                    "stream_id": stats.stream_id,
                     "uptime_percentage": uptime,
                     "estimated_earnings": estimated_earnings,
-                    "total_polls": total_polls,
-                    "successful_polls": successful_polls
+                    "total_polls": stats.total_polls,
+                    "successful_polls": stats.successful_polls,
+                    "failed_spot_checks": stats.failed_spot_checks,
+                    "penalty_multiplier": penalty_multiplier
                 })
             
             return {
                 "node_id": node_id,
                 "period": f"Last {days_back} days",
                 "total_estimated_earnings": total_earnings,
-                "streams_participated": len(participated_streams),
-                "stream_details": stream_details
+                "streams_participated": len(stream_stats),
+                "stream_details": stream_details,
+                "payout_model": "contribution-weighted"
             }
             
         finally:

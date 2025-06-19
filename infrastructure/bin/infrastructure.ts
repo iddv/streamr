@@ -46,6 +46,7 @@ const applicationStack = new ApplicationStack(app, context.stackName('applicatio
   vpc: foundationStack.vpc,
   dbSecurityGroup: foundationStack.dbSecurityGroup,
   cacheSecurityGroup: foundationStack.cacheSecurityGroup,
+  deploymentBucket: foundationStack.deploymentBucket,
   env: {
     region: context.region,
   },

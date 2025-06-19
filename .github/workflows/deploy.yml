@@ -1,0 +1,101 @@
+name: 🚀 Deploy StreamrP2P
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:  # Manual trigger
+
+env:
+  AWS_REGION: eu-west-1
+  STAGE: beta
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: 🔧 Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+        
+    - name: 📦 Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: infrastructure/package-lock.json
+        
+    - name: 🏗️ Install CDK dependencies
+      run: |
+        cd infrastructure
+        npm ci
+        
+    - name: 🔨 Build CDK
+      run: |
+        cd infrastructure
+        npm run build
+        
+    - name: 🚀 Deploy Infrastructure (CDK)
+      run: |
+        cd infrastructure
+        npx cdk deploy --all \
+          --context stage=${{ env.STAGE }} \
+          --context region=${{ env.AWS_REGION }} \
+          --require-approval never \
+          --outputs-file cdk-outputs.json
+          
+    - name: 📱 Deploy Application
+      run: |
+        # Get instance IP from CDK outputs
+        INSTANCE_IP=$(jq -r '.["streamr-p2p-'$STAGE'-'$AWS_REGION'-application"].InstancePublicIP' infrastructure/cdk-outputs.json)
+        
+        # Wait for instance to be ready
+        echo "Waiting for instance $INSTANCE_IP to be ready..."
+        sleep 60
+        
+        # Deploy application code
+        cd coordinator
+        tar czf streamr-app.tar.gz app/ requirements.txt Dockerfile docker-compose.yml
+        
+        # Copy to S3 (cheap storage, simple deployment)
+        aws s3 cp streamr-app.tar.gz s3://streamr-deployments-$STAGE/
+        
+        # Trigger deployment on instance via SSM (no SSH needed!)
+        aws ssm send-command \
+          --instance-ids $(jq -r '.["streamr-p2p-'$STAGE'-'$AWS_REGION'-application"].InstanceId' ../infrastructure/cdk-outputs.json) \
+          --document-name "AWS-RunShellScript" \
+          --parameters 'commands=[
+            "cd /opt/streamr-coordinator",
+            "aws s3 cp s3://streamr-deployments-'$STAGE'/streamr-app.tar.gz .",
+            "tar xzf streamr-app.tar.gz",
+            "docker-compose down || true",
+            "docker-compose up -d --build"
+          ]'
+          
+    - name: 🧪 Test Deployment
+      run: |
+        INSTANCE_IP=$(jq -r '.["streamr-p2p-'$STAGE'-'$AWS_REGION'-application"].InstancePublicIP' infrastructure/cdk-outputs.json)
+        
+        # Wait for application to start
+        sleep 30
+        
+        # Test health endpoint
+        for i in {1..5}; do
+          if curl -f "http://$INSTANCE_IP:8000/health"; then
+            echo "✅ Health check passed"
+            exit 0
+          fi
+          echo "Retrying health check in 30s..."
+          sleep 30
+        done
+        
+        echo "❌ Health check failed"
+        exit 1 
