@@ -415,9 +415,9 @@ export class ApplicationStack extends cdk.Stack {
       securityGroup: albSecurityGroup,
     });
 
-    // Target Group for the coordinator API (port 8000)
-    const coordinatorTargetGroup = new elbv2.ApplicationTargetGroup(this, 'CoordinatorTargetGroup', {
-      targetGroupName: context.resourceName('coordinator-tg'),
+    // Target Group for the application
+    const targetGroup = new elbv2.ApplicationTargetGroup(this, 'TargetGroup', {
+      targetGroupName: context.resourceName('tg'),
       port: 8000,
       protocol: elbv2.ApplicationProtocol.HTTP,
       vpc,
@@ -434,18 +434,14 @@ export class ApplicationStack extends cdk.Stack {
       },
     });
 
-    // HTTP Listener with path-based routing (single listener approach)
-    const listener = this.loadBalancer.addListener('HTTPListener', {
+    // HTTP Listener (use existing approach to avoid conflicts)
+    this.loadBalancer.addListener('HTTPListener', {
       port: 80,
       protocol: elbv2.ApplicationProtocol.HTTP,
-      defaultTargetGroups: [coordinatorTargetGroup],
+      defaultTargetGroups: [targetGroup],
     });
 
-    // NOTE: For now, keep SRS traffic direct to instance via Elastic IP
-    // Path-based ALB routing for SRS would require significant SRS config changes
-    // This gives us stable endpoints without complex ALB routing conflicts
-
-    // Outputs - UPDATED for stable endpoint architecture
+    // Outputs - Stable endpoints with Elastic IP for streaming
     new cdk.CfnOutput(this, 'LoadBalancerDNS', {
       value: this.loadBalancer.loadBalancerDnsName,
       description: 'Application Load Balancer DNS Name (Stable)',
