@@ -76,6 +76,13 @@ export class ApplicationStack extends cdk.Stack {
       'Allow RTMP streaming traffic (direct access only)'
     );
 
+    // 🎯 FIXED: Allow SRS HTTP/HLS traffic directly from public internet
+    this.instanceSecurityGroup.addIngressRule(
+      ec2.Peer.anyIpv4(),
+      ec2.Port.tcp(8080),
+      'Allow SRS HTTP/HLS streaming traffic (public access for friends)'
+    );
+
     // Allow HTTP traffic from ALB to instance (coordinator API)
     this.instanceSecurityGroup.addIngressRule(
       albSecurityGroup,
