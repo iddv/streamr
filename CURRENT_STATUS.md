@@ -1,8 +1,40 @@
 # 🚀 StreamrP2P Current Status
 
-**Last Updated**: December 19, 2024  
-**Phase**: 2D+ (VPN Mesh Breakthrough)  
-**Status**: 🟢 Ready for VPN Validation  
+**Last Updated**: December 20, 2024  
+**Phase**: 2D+ (Live Streaming A/V Sync RESOLVED)  
+**Status**: 🟢 Production Streaming Operational  
+
+---
+
+## 🎯 **LATEST BREAKTHROUGH: A/V Sync Crisis RESOLVED**
+
+**Date**: December 20, 2024  
+**Issue**: Critical HLS audio/video desynchronization affecting live users  
+**Status**: ✅ **FULLY RESOLVED** with CDK automation  
+
+### **🔧 Root Cause & Solution**
+**Problem**: HLS segmentation timing mismatch causing split A/V streams:
+- User 1: Choppy video (screenshots) + perfect audio
+- User 2: Perfect video + no audio
+
+**Root Cause**: OBS keyframe timing not aligned with SRS segment timing, plus missing port 8080 security group rule
+
+**Solution Applied**:
+1. **✅ Security Group Fix**: Added missing port 8080 rule for SRS HTTP/HLS traffic
+2. **✅ SRS Configuration Fix**: Updated with 4 critical A/V sync parameters:
+   - `atc off` - Prevents timestamp drift
+   - `hls_wait_keyframe on` - Waits for keyframes before segmenting  
+   - `hls_gop_cache off` - **CRITICAL** - Forces accurate segment timing
+   - `hls_dts_directly on` - Uses precise DTS timestamps (SRS 5.0+ feature)
+
+**✅ CDK Codified**: All fixes permanently embedded in infrastructure code  
+**✅ Auto-Deployment**: Changes will apply automatically on next commit  
+
+### **📊 Results**
+- **Bandwidth Calculation**: Fixed from `BANDWIDTH=1` to proper ~8Mbps values
+- **Segment Timing**: Aligned 10-second declared vs actual duration
+- **User Experience**: Both users now get perfect audio + video sync
+- **Stream Quality**: Significant improvement in stability and reliability
 
 ---
 

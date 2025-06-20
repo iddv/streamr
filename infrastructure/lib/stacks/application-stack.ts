@@ -68,6 +68,13 @@ export class ApplicationStack extends cdk.Stack {
       'Allow RTMP streaming traffic'
     );
 
+    // Allow SRS HTTP/HLS traffic directly to instance (for streaming playback)
+    this.instanceSecurityGroup.addIngressRule(
+      ec2.Peer.anyIpv4(),
+      ec2.Port.tcp(8080),
+      'Allow SRS HTTP/HLS streaming traffic'
+    );
+
     // Allow HTTP traffic from ALB to instance
     this.instanceSecurityGroup.addIngressRule(
       albSecurityGroup,
@@ -254,12 +261,20 @@ export class ApplicationStack extends cdk.Stack {
       '}',
       '',
       'vhost __defaultVhost__ {',
+      '    # FIX: Disable ATC to prevent timestamp drift',
+      '    atc off;',
+      '    ',
       '    # Enable HLS for web playback',
       '    hls {',
       '        enabled         on;',
       '        hls_path        ./objs/nginx/html;',
       '        hls_fragment    10;',
       '        hls_window      60;',
+      '        ',
+      '        # CRITICAL FIXES for A/V sync:',
+      '        hls_wait_keyframe on;    # Wait for keyframes before segmenting',
+      '        hls_gop_cache off;       # Disable GOP cache for accurate timing',
+      '        hls_dts_directly on;     # Use precise DTS timestamps (SRS 5.0+ feature)',
       '    }',
       '    ',
       '    # Enable HTTP-FLV for low-latency',
