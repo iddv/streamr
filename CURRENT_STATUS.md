@@ -1,3 +1,12 @@
+# 📊 StreamrP2P Current Status
+
+> **Navigation**: [README.md](README.md) → **CURRENT_STATUS.md** (you are here) | [PROJECT_TRACKER.md](PROJECT_TRACKER.md)  
+> 
+> **Purpose**: Latest progress, breakthroughs, system status, and live endpoints  
+> **Future Plans**: See [PROJECT_TRACKER.md](PROJECT_TRACKER.md) for roadmap and priorities
+
+---
+
 # 🚀 StreamrP2P Current Status
 
 **Last Updated**: December 20, 2024  

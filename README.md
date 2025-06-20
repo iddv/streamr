@@ -9,234 +9,144 @@
 
 ---
 
-## 🎯 **PLANNED: VPN Mesh Solution**
+## 📋 **Navigation Hub**
 
-**The Next Innovation**: Instead of fighting NAT traversal complexity, we're planning to implement a **self-hosted VPN mesh** that would make all friend nodes appear on the same private network. This would eliminate router configuration, port forwarding, and platform compatibility issues.
+### **📊 Current Status & Latest Progress**
+👉 **[CURRENT_STATUS.md](CURRENT_STATUS.md)** - What's working now, recent breakthroughs, live endpoints
 
-**The Planned Approach**: **Headscale** (open-source Tailscale control server) + official Tailscale clients = zero-config P2P mesh networking.
+### **🚀 Future Plans & Roadmap** 
+👉 **[PROJECT_TRACKER.md](PROJECT_TRACKER.md)** - Priorities, timeline, what's next
 
-### **Why This Would Change Everything**
-- 🔄 **No Router Configuration** - Would eliminate the #1 user friction point
-- 🔄 **Cross-Platform Ready** - Tailscale clients exist for all platforms
-- 🔄 **Battle-Tested Networking** - Would leverage mature NAT traversal technology
-- 🔄 **Self-Hosted Control** - No ongoing costs, complete ownership
-- 🔄 **True P2P Validation** - Perfect test of "video torrenting" concept
+### **📺 Live System**
+👉 **[LIVE_ENDPOINTS.md](LIVE_ENDPOINTS.md)** - Production URLs, testing info, deployment status
 
 ---
 
-## 🚀 **Current Status: Friends Testing Ready**
+## 🎯 **What is StreamrP2P?**
 
-### **✅ What's Working (Production Ready)**
-- **🏗️ AWS Infrastructure**: Fully automated CDK deployment
-- **⚡ Database Performance**: 99%+ improvement (40k+ queries → 1 query)
-- **🔒 Zero-Touch Deployment**: Complete CI/CD with secrets management
-- **📊 Live Endpoints**: All coordinator APIs operational
-- **📺 Streaming Server**: SRS server ready for RTMP/HLS
-- **🤝 Friend Setup**: Cross-platform scripts and documentation
+**The Vision**: "Video Torrenting" - distribute stream chunks across friend nodes in real-time, just like BitTorrent but for live video.
 
-### **🔄 Next Phase: VPN Mesh Development**
-**Goal**: Implement and validate VPN mesh approach  
-**Timeline**: Future development phase  
-**Status**: Currently in planning/research phase
-
----
-
-## 🌟 **How StreamrP2P Works**
-
-### **The Vision: Video Torrenting**
-StreamrP2P is essentially "video torrenting" - distributing stream chunks across friend nodes in real-time:
-- **Traditional Torrenting**: File chunks distributed asynchronously
-- **StreamrP2P**: Video chunks distributed with ~2-3 second latency  
-- **Same Principle**: More peers = better distribution, reduced central bandwidth
-
-### **Current Architecture**
-```
-Streamer → Internet → Friend Nodes → Internet → Viewers
-          (Current: Direct connections with port forwarding)
-```
-
-### **Planned Architecture**
-```
-Streamer → [VPN Mesh] → Friend Nodes → [VPN Mesh] → Viewers
-          (Future: All nodes on same private network)
-```
-
-### **The Economic Model**
+**The Economics**: 
 - **Streamers**: Reduce bandwidth costs by distributing load
-- **Friends**: Earn rewards for helping relay streams
+- **Friends**: Earn rewards for helping relay streams  
 - **Viewers**: Get better performance through distributed delivery
-- **Platform**: Scales organically through social connections
+
+**The Reality**: We have a **working production system** ready for friends testing!
+
+---
+
+## ⚡ **Quick Start**
+
+### **🎮 For Streamers**
+1. **Stream to our server**: `rtmp://108.129.97.122:1935/live/your_key`
+2. **Check dashboard**: http://streamr-p2p-beta-alb-1243469977.eu-west-1.elb.amazonaws.com/
+3. **Invite friends**: Share the setup guide with supporters
+
+### **🤝 For Friends (Supporters)**
+1. **Get setup guide**: [`docs/testing/FRIEND_SETUP.md`](docs/testing/FRIEND_SETUP.md)
+2. **Run support node**: `./setup-friend-node.sh STREAM_KEY`
+3. **Earn rewards**: Get paid for helping distribute streams
+
+### **🏗️ For Developers**
+1. **Deploy infrastructure**: `cd infrastructure && npx cdk deploy --all`
+2. **Start services**: `cd coordinator && docker-compose up`
+3. **Run tests**: `python -m pytest tests/`
 
 ---
 
 ## 🛠️ **Technical Stack**
 
 ### **Infrastructure**
-- **AWS CDK**: Infrastructure as Code with TypeScript
-- **EC2 + ALB**: Auto-scaling compute with load balancing
-- **RDS PostgreSQL**: Optimized database with performance monitoring
-- **ElastiCache**: Redis for session management and caching
+- **AWS CDK**: Infrastructure as Code (TypeScript)
+- **EC2 + ALB**: Auto-scaling compute with load balancing  
+- **RDS PostgreSQL**: Optimized database with 99%+ performance improvement
+- **ElastiCache Redis**: Session management and caching
 
-### **Backend Services**
-- **Coordinator API**: FastAPI with contribution-weighted payouts
-- **Database Layer**: Optimized queries with window functions
+### **Services**
+- **Coordinator API**: FastAPI with real-time node coordination
 - **Streaming Server**: SRS with RTMP ingest and HLS output
-- **Monitoring**: Health checks and performance tracking
+- **Node Client**: Python scripts for friend supporters
+- **Fraud Detection**: Automated validation and earnings calculation
 
-### **Networking (Planned)**
-- **Headscale**: Self-hosted VPN mesh control server (future development)
-- **Tailscale Clients**: Cross-platform VPN mesh participants (future integration)
-- **WireGuard**: Underlying P2P encryption protocol (future implementation)
-- **DERP Relays**: Fallback for difficult NAT scenarios (future feature)
-
----
-
-## 📊 **Live System Status**
-
-### **🌐 Current Endpoints**
-- **Web Dashboard**: http://streamr-p2p-beta-alb-1243469977.eu-west-1.elb.amazonaws.com/
-- **API Base**: http://streamr-p2p-beta-alb-1243469977.eu-west-1.elb.amazonaws.com/
-- **Health Check**: http://streamr-p2p-beta-alb-1243469977.eu-west-1.elb.amazonaws.com/health
-
-### **📺 Streaming Endpoints**  
-- **RTMP Ingest**: rtmp://108.129.97.122:1935/live/{stream_key}
-- **HLS Playback**: http://108.129.97.122:8080/live/{stream_key}.m3u8
-- **HTTP-FLV**: http://108.129.97.122:8080/live/{stream_key}.flv
-
-### **🚀 Quick Deploy**
-```bash
-cd infrastructure
-npx cdk deploy streamr-p2p-beta-ireland-application --require-approval never
-# Result: Complete working system in 6.8 minutes
-```
+### **Deployment**
+- **Docker Compose**: Local development and production orchestration
+- **CI/CD Pipeline**: GitHub Actions with automated deployment
+- **Monitoring**: Health checks, CloudWatch, performance tracking
 
 ---
 
-## 🎯 **Getting Started**
+## 📚 **Documentation Structure**
 
-### **For Current Friend Testing**
-1. **Clone Repository**: `git clone https://github.com/iddv/streamr.git`
-2. **Setup Friend Node**: `./setup-friend-node.sh YOUR_STREAM_KEY`
-3. **Follow Guide**: [`docs/testing/FRIEND_SETUP.md`](docs/testing/FRIEND_SETUP.md)
-4. **Share Feedback**: Report experience and issues
+### **🎯 Current Focus**
+- [`CURRENT_STATUS.md`](CURRENT_STATUS.md) - Latest progress and breakthroughs
+- [`PROJECT_TRACKER.md`](PROJECT_TRACKER.md) - Roadmap and priorities
+- [`docs/testing/FRIEND_SETUP.md`](docs/testing/FRIEND_SETUP.md) - Friend node setup guide
 
-### **For Infrastructure Development**
-1. **Prerequisites**: AWS CLI, Node.js, Docker
-2. **Deploy Infrastructure**: `cd infrastructure && npx cdk deploy --all`
-3. **Start Services**: `cd coordinator && docker-compose up`
-4. **Run Tests**: `python -m pytest tests/`
+### **📊 System Status**
+- [`LIVE_ENDPOINTS.md`](LIVE_ENDPOINTS.md) - Production URLs and testing info
+- [`LOCAL_TESTING_GUIDE.md`](LOCAL_TESTING_GUIDE.md) - Local development setup
+- [`docs/testing/REMOTE_TESTING_GUIDE.md`](docs/testing/REMOTE_TESTING_GUIDE.md) - Remote testing procedures
 
----
+### **🏗️ Infrastructure & Deployment**
+- [`infrastructure/README.md`](infrastructure/README.md) - AWS deployment guide
+- [`docs/aws-deployment/`](docs/aws-deployment/) - Detailed AWS documentation
+- [`ARCHITECTURE_ANALYSIS_REPORT.md`](ARCHITECTURE_ANALYSIS_REPORT.md) - System architecture
 
-## 📈 **Performance Achievements**
-
-### **Database Optimization**
-- **99%+ Performance Improvement**: 40,000+ queries → 1 query per stream
-- **Sub-Second Payouts**: Contribution-weighted calculations in <1 second
-- **Scalable Architecture**: Ready for thousands of concurrent streams
-
-### **Deployment Automation**
-- **6.8 Minute Deployments**: Complete infrastructure from zero to production
-- **Zero Manual Configuration**: Automated secrets management
-- **Production Ready**: Health checks, monitoring, error handling
-
-### **Cost Optimization**
-- **$45/month Operational**: Full production infrastructure
-- **$36/month Paused**: Development mode with pause capability
-- **Scaling Economics**: User-provided bandwidth reduces operational costs
+### **📈 Analysis & Research**
+- [`research/`](research/) - Economic and technical feasibility studies
+- [`docs/analysis/`](docs/analysis/) - Performance analysis and optimization strategies
+- [`AWS_ARCHITECTURE_SECURITY_COST_REVIEW.md`](AWS_ARCHITECTURE_SECURITY_COST_REVIEW.md) - Security and cost analysis
 
 ---
 
-## 🔮 **Roadmap**
+## 🎉 **Major Achievements**
 
-### **Phase 1: Current Friends Testing**
-- [x] Production AWS infrastructure
-- [x] Database performance optimization
-- [x] Streaming server deployment
-- [ ] Friend node testing and feedback
-- [ ] User experience improvements
+### **✅ Production System Operational**
+- **Live Streaming**: 8+ Mbps RTMP streams with perfect A/V sync
+- **Real-time Coordination**: Sub-second API response times
+- **Automated Deployment**: 6.8 minute zero-touch deployments
+- **Database Performance**: 40,000+ queries reduced to 1 query per stream
+- **Cost Optimized**: $45/month full production, $36/month paused
 
-### **Phase 2: VPN Mesh Development (Planned)**
-- [ ] Research and design VPN mesh architecture
-- [ ] Deploy Headscale control server
-- [ ] Create VPN mesh setup scripts  
-- [ ] Test with local devices
-- [ ] Invite friends for real-world testing
-- [ ] Collect performance and UX data
-
-### **Phase 3: Integration (If VPN Succeeds)**
-- [ ] Embed WireGuard in custom client
-- [ ] Auto-configuration for mesh joining
-- [ ] Single executable deployment
-- [ ] Bandwidth limits and monitoring
-
-### **Phase 4: Production Scale**
-- [ ] Native apps for all platforms
-- [ ] One-click setup experience
-- [ ] Advanced economic models
-- [ ] Global relay network
+### **✅ Ready for Friends Testing**
+- **Complete Documentation**: Setup guides for all platforms
+- **Cross-Platform Scripts**: Windows, Mac, Linux support
+- **Fraud Detection**: Automated validation and earnings calculation
+- **Security Hardened**: Production security groups and monitoring
 
 ---
 
 ## 🤝 **Contributing**
 
-### **Current Focus: Friends Testing**
-We're actively testing the current platform and need:
-- **Friends for Testing**: Help validate real-world performance with current setup
+### **🔥 Current Priority: Friends Testing**
+We need friends to test the real-world P2P streaming experience:
 - **Platform Testing**: Windows, Mac, Linux compatibility
-- **Network Conditions**: Different ISPs, NAT configurations
-- **UX Feedback**: Documentation clarity and setup complexity
+- **Network Validation**: Different ISPs and NAT configurations  
+- **UX Feedback**: Setup complexity and documentation clarity
+- **Economic Model**: Real-world earnings and reward distribution
 
 ### **Development Areas**
-- **Infrastructure**: AWS CDK improvements and cost optimization
-- **Backend**: API enhancements and database scaling
-- **Networking**: Planning VPN mesh integration and P2P protocols
-- **Frontend**: Dashboard improvements and user experience
+- **Frontend**: Dashboard and user interface improvements
+- **Client Packaging**: Native installers for easy distribution
+- **Mobile Support**: PWA or native app development
+- **Performance**: Optimization and scaling improvements
 
 ### **Getting Involved**
-1. **Test the Platform**: Try friend node setup and report issues
+1. **Test the Platform**: Try friend node setup ([guide](docs/testing/FRIEND_SETUP.md))
 2. **Review Documentation**: Suggest improvements to guides
-3. **Submit Issues**: Report bugs or feature requests
+3. **Submit Issues**: Report bugs or feature requests on GitHub
 4. **Contribute Code**: Fork, develop, and submit pull requests
-
----
-
-## 📚 **Documentation**
-
-### **User Guides**
-- [`docs/testing/FRIEND_SETUP.md`](docs/testing/FRIEND_SETUP.md) - Complete friend node setup
-- [`docs/testing/REMOTE_TESTING_GUIDE.md`](docs/testing/REMOTE_TESTING_GUIDE.md) - Remote testing procedures
-- [`LOCAL_TESTING_GUIDE.md`](LOCAL_TESTING_GUIDE.md) - Local development setup
-
-### **Technical Documentation**
-- [`docs/analysis/VPN_MESH_VALIDATION_PLAN.md`](docs/analysis/VPN_MESH_VALIDATION_PLAN.md) - VPN mesh planning (future development)
-- [`docs/aws-deployment/AWS_DEPLOYMENT_GUIDE.md`](docs/aws-deployment/AWS_DEPLOYMENT_GUIDE.md) - Infrastructure deployment
-- [`ARCHITECTURE_ANALYSIS_REPORT.md`](ARCHITECTURE_ANALYSIS_REPORT.md) - System architecture overview
-
-### **Analysis & Research**
-- [`docs/analysis/DATABASE_SCALING_STRATEGY.md`](docs/analysis/DATABASE_SCALING_STRATEGY.md) - Database optimization strategy
-- [`AWS_ARCHITECTURE_SECURITY_COST_REVIEW.md`](AWS_ARCHITECTURE_SECURITY_COST_REVIEW.md) - Security and cost analysis
-- [`research/`](research/) - Economic and technical feasibility studies
-
----
-
-## 🎉 **The Future of Streaming**
-
-StreamrP2P represents a fundamental shift from centralized to decentralized streaming infrastructure:
-
-- **Social**: Friends helping friends reduces costs and builds community
-- **Economic**: Sustainable incentives drive organic growth
-- **Technical**: P2P distribution scales better than traditional CDNs
-- **Accessible**: Simple setup makes decentralized infrastructure practical
-
-**We're proving that decentralized streaming infrastructure can be simple, social, and economically viable for real users today.**
 
 ---
 
 ## 📞 **Contact & Support**
 
-- **GitHub Issues**: Report bugs and request features
-- **Documentation**: Comprehensive guides for all use cases
 - **Current Status**: [`CURRENT_STATUS.md`](CURRENT_STATUS.md) - Latest development updates
+- **GitHub Issues**: Report bugs and request features  
+- **Documentation**: Comprehensive guides for all use cases
 
-**Join us in building the future of decentralized streaming! 🚀** 
+**Join us in building the future of decentralized streaming! 🚀**
+
+---
+
+*StreamrP2P proves that decentralized streaming infrastructure can be simple, social, and economically viable for real users today.* 
