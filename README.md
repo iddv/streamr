@@ -35,7 +35,13 @@
 
 ---
 
-## ⚡ **Quick Start**
+## 🚀 **Quick Start**
+
+- **📊 Current Progress**: [CURRENT_STATUS.md](CURRENT_STATUS.md) - Latest development status  
+- **📋 Project Roadmap**: [PROJECT_TRACKER.md](PROJECT_TRACKER.md) - Future plans and milestones
+- **🌐 Live System**: [LIVE_ENDPOINTS.md](LIVE_ENDPOINTS.md) - Production URLs and status
+- **🎯 Stable Endpoints**: [ENDPOINT_REFERENCE.md](ENDPOINT_REFERENCE.md) - Never-changing URLs guide
+- **📚 Full Documentation**: [docs/README.md](docs/README.md) - Complete documentation hub
 
 ### **🎮 For Streamers**
 1. **Stream to our server**: `rtmp://108.129.97.122:1935/live/your_key`
