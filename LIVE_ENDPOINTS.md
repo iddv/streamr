@@ -1,8 +1,8 @@
 # 🌐 StreamrP2P Live Endpoints
 
 **Status**: ✅ **AUTOMATED DEPLOYMENT OPERATIONAL**  
-**Last Updated**: June 19, 2025  
-**Instance**: i-0a3441ffa5c91f079 (108.129.97.122)  
+**Last Updated**: December 20, 2024  
+**Instance**: i-0a3441ffa5c91f079 (54.154.29.216)  
 **Deployment**: Zero-touch automated with secrets management
 
 ## 🚀 **BREAKTHROUGH: Automated Deployment Achieved**
@@ -29,11 +29,11 @@
 - **Payouts**: http://streamr-p2p-beta-alb-1243469977.eu-west-1.elb.amazonaws.com/payouts
 
 ### **📺 Streaming Server (SRS)**
-- **RTMP Ingest**: rtmp://108.129.97.122:1935/live/{stream_key}
-- **HLS Playback**: http://108.129.97.122:8080/live/{stream_key}.m3u8
-- **HTTP-FLV (VLC)**: http://108.129.97.122:8080/live/{stream_key}.flv
-- **SRS API**: http://108.129.97.122:8080/api/v1/versions
-- **SRS Console**: http://108.129.97.122:8080/
+- **RTMP Ingest**: rtmp://54.154.29.216:1935/live/{stream_key}
+- **HLS Playback**: http://54.154.29.216:8080/live/{stream_key}.m3u8
+- **HTTP-FLV (VLC)**: http://54.154.29.216:8080/live/{stream_key}.flv
+- **SRS API**: http://54.154.29.216:8080/api/v1/versions
+- **SRS Console**: http://54.154.29.216:8080/
 
 ---
 
@@ -60,11 +60,11 @@ curl http://streamr-p2p-beta-alb-1243469977.eu-west-1.elb.amazonaws.com/payouts
 ### **🎮 Streaming Test**
 ```bash
 # Test with OBS Studio
-RTMP URL: rtmp://108.129.97.122:1935/live/
+RTMP URL: rtmp://54.154.29.216:1935/live/
 Stream Key: obs-test
 
 # Test playback in VLC
-URL: http://108.129.97.122:8080/live/obs-test.flv
+URL: http://54.154.29.216:8080/live/obs-test.flv
 ```
 
 ---
