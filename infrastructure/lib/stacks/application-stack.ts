@@ -20,6 +20,7 @@ export class ApplicationStack extends cdk.Stack {
   public readonly instance: ec2.Instance;
   public readonly loadBalancer: elbv2.ApplicationLoadBalancer;
   public readonly instanceSecurityGroup: ec2.SecurityGroup;
+  public readonly elasticIp: ec2.CfnEIP;
 
   constructor(scope: Construct, id: string, props: ApplicationStackProps) {
     super(scope, id, props);
@@ -61,25 +62,32 @@ export class ApplicationStack extends cdk.Stack {
       'Allow HTTPS traffic'
     );
 
-    // Allow RTMP traffic directly to instance (bypass ALB for streaming)
+    // 🎯 IMPROVED: Allow SRS HTTP/HLS traffic to ALB (port 8080)
+    albSecurityGroup.addIngressRule(
+      ec2.Peer.anyIpv4(),
+      ec2.Port.tcp(8080),
+      'Allow SRS HTTP/HLS streaming traffic to ALB'
+    );
+
+    // Allow RTMP traffic directly to instance (RTMP requires TCP, ALB is HTTP-only)
     this.instanceSecurityGroup.addIngressRule(
       ec2.Peer.anyIpv4(),
       ec2.Port.tcp(1935),
-      'Allow RTMP streaming traffic'
+      'Allow RTMP streaming traffic (direct access only)'
     );
 
-    // Allow SRS HTTP/HLS traffic directly to instance (for streaming playback)
-    this.instanceSecurityGroup.addIngressRule(
-      ec2.Peer.anyIpv4(),
-      ec2.Port.tcp(8080),
-      'Allow SRS HTTP/HLS streaming traffic'
-    );
-
-    // Allow HTTP traffic from ALB to instance
+    // Allow HTTP traffic from ALB to instance (coordinator API)
     this.instanceSecurityGroup.addIngressRule(
       albSecurityGroup,
       ec2.Port.tcp(8000),
-      'Allow HTTP traffic from ALB'
+      'Allow HTTP traffic from ALB to coordinator'
+    );
+
+    // 🎯 IMPROVED: Allow SRS HTTP/HLS traffic from ALB to instance  
+    this.instanceSecurityGroup.addIngressRule(
+      albSecurityGroup,
+      ec2.Port.tcp(8080),
+      'Allow SRS HTTP/HLS traffic from ALB to instance'  
     );
 
     // Allow SSH access (for beta stage only)
@@ -176,6 +184,31 @@ export class ApplicationStack extends cdk.Stack {
       userData,
       keyName,
       detailedMonitoring: stageConfig.monitoring.detailed,
+    });
+
+    // 🎯 STABLE ENDPOINT SOLUTION: Elastic IP for permanent IP address
+    this.elasticIp = new ec2.CfnEIP(this, 'ElasticIP', {
+      domain: 'vpc',
+      tags: [
+        {
+          key: 'Name',
+          value: context.resourceName('elastic-ip'),
+        },
+        {
+          key: 'Project',
+          value: streamrConfig.app.name,
+        },
+        {
+          key: 'Stage',
+          value: context.stage,
+        },
+      ],
+    });
+
+    // Associate Elastic IP with EC2 Instance
+    new ec2.CfnEIPAssociation(this, 'ElasticIPAssociation', {
+      eip: this.elasticIp.ref,
+      instanceId: this.instance.instanceId,
     });
 
     // Get CloudFormation instance for logical ID and creation policy
@@ -382,9 +415,9 @@ export class ApplicationStack extends cdk.Stack {
       securityGroup: albSecurityGroup,
     });
 
-    // Target Group for the application
-    const targetGroup = new elbv2.ApplicationTargetGroup(this, 'TargetGroup', {
-      targetGroupName: context.resourceName('tg'),
+    // Target Group for the coordinator API (port 8000)
+    const coordinatorTargetGroup = new elbv2.ApplicationTargetGroup(this, 'CoordinatorTargetGroup', {
+      targetGroupName: context.resourceName('coordinator-tg'),
       port: 8000,
       protocol: elbv2.ApplicationProtocol.HTTP,
       vpc,
@@ -401,23 +434,67 @@ export class ApplicationStack extends cdk.Stack {
       },
     });
 
-    // HTTP Listener
-    this.loadBalancer.addListener('HTTPListener', {
-      port: 80,
+    // 🎯 NEW: Target Group for SRS streaming server (port 8080)
+    const srsTargetGroup = new elbv2.ApplicationTargetGroup(this, 'SRSTargetGroup', {
+      targetGroupName: context.resourceName('srs-tg'),
+      port: 8080,
       protocol: elbv2.ApplicationProtocol.HTTP,
-      defaultTargetGroups: [targetGroup],
+      vpc,
+      targets: [new elbv2_targets.InstanceTarget(this.instance)],
+      healthCheck: {
+        enabled: true,
+        path: '/api/v1/version',
+        protocol: elbv2.Protocol.HTTP,
+        port: '8080',
+        healthyThresholdCount: 2,
+        unhealthyThresholdCount: 3,
+        timeout: cdk.Duration.seconds(5),
+        interval: cdk.Duration.seconds(30),
+      },
     });
 
-    // Outputs
+    // HTTP Listener for coordinator API (port 80 -> 8000)
+    this.loadBalancer.addListener('CoordinatorHTTPListener', {
+      port: 80,
+      protocol: elbv2.ApplicationProtocol.HTTP,
+      defaultTargetGroups: [coordinatorTargetGroup],
+    });
+
+    // 🎯 NEW: HTTP Listener for SRS streaming (port 8080 -> 8080)
+    this.loadBalancer.addListener('SRSHTTPListener', {
+      port: 8080,
+      protocol: elbv2.ApplicationProtocol.HTTP,
+      defaultTargetGroups: [srsTargetGroup],
+    });
+
+    // Outputs - UPDATED for stable ALB endpoints
     new cdk.CfnOutput(this, 'LoadBalancerDNS', {
       value: this.loadBalancer.loadBalancerDnsName,
-      description: 'Application Load Balancer DNS Name',
+      description: 'Application Load Balancer DNS Name (Stable)',
       exportName: context.stackName('alb-dns'),
     });
 
+    new cdk.CfnOutput(this, 'WebDashboard', {
+      value: `http://${this.loadBalancer.loadBalancerDnsName}/`,
+      description: 'Web Dashboard URL (Stable ALB)',
+      exportName: context.stackName('web-dashboard'),
+    });
+
+    new cdk.CfnOutput(this, 'HLSStreamingEndpoint', {
+      value: `http://${this.loadBalancer.loadBalancerDnsName}:8080/live/{stream}.m3u8`,
+      description: 'HLS Streaming Endpoint (Stable ALB)',
+      exportName: context.stackName('hls-endpoint'),
+    });
+
+    new cdk.CfnOutput(this, 'RTMPEndpoint', {
+      value: `rtmp://${this.elasticIp.ref}:1935/live`,
+      description: 'RTMP Streaming Endpoint (Direct IP - ALB cannot handle TCP)',
+      exportName: context.stackName('rtmp-endpoint'),
+    });
+
     new cdk.CfnOutput(this, 'InstancePublicIP', {
-      value: this.instance.instancePublicIp,
-      description: 'EC2 Instance Public IP',
+      value: this.elasticIp.ref,
+      description: 'EC2 Instance Stable Public IP (Elastic IP)',
       exportName: context.stackName('instance-public-ip'),
     });
 
@@ -427,16 +504,10 @@ export class ApplicationStack extends cdk.Stack {
       exportName: context.stackName('instance-id'),
     });
 
-    new cdk.CfnOutput(this, 'RTMPEndpoint', {
-      value: `rtmp://${this.instance.instancePublicIp}:1935/live`,
-      description: 'RTMP Streaming Endpoint',
-      exportName: context.stackName('rtmp-endpoint'),
-    });
-
-    new cdk.CfnOutput(this, 'WebDashboard', {
-      value: `http://${this.loadBalancer.loadBalancerDnsName}/`,
-      description: 'Web Dashboard URL',
-      exportName: context.stackName('web-dashboard'),
+    new cdk.CfnOutput(this, 'StableEndpointSummary', {
+      value: `Dashboard: http://${this.loadBalancer.loadBalancerDnsName}/ | HLS: http://${this.loadBalancer.loadBalancerDnsName}:8080/live/{stream}.m3u8 | RTMP: rtmp://${this.elasticIp.ref}:1935/live`,
+      description: '🎯 ALL STABLE ENDPOINTS (Never Change!)',
+      exportName: context.stackName('stable-endpoints'),
     });
   }
 
