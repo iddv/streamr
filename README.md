@@ -44,7 +44,7 @@
 
 ### **🤝 For Friends (Supporters)**
 1. **Get setup guide**: [`docs/testing/FRIEND_SETUP.md`](docs/testing/FRIEND_SETUP.md)
-2. **Run support node**: `./setup-friend-node.sh STREAM_KEY`
+2. **Run support node**: `scripts/setup-friend-node.sh STREAM_KEY`
 3. **Earn rewards**: Get paid for helping distribute streams
 
 ### **🏗️ For Developers**
@@ -84,18 +84,29 @@
 
 ### **📊 System Status**
 - [`LIVE_ENDPOINTS.md`](LIVE_ENDPOINTS.md) - Production URLs and testing info
-- [`LOCAL_TESTING_GUIDE.md`](LOCAL_TESTING_GUIDE.md) - Local development setup
+- [`docs/testing/LOCAL_TESTING_GUIDE.md`](docs/testing/LOCAL_TESTING_GUIDE.md) - Local development setup
 - [`docs/testing/REMOTE_TESTING_GUIDE.md`](docs/testing/REMOTE_TESTING_GUIDE.md) - Remote testing procedures
+- [`docs/testing/FRIEND_TEST_PROTOCOL.md`](docs/testing/FRIEND_TEST_PROTOCOL.md) - Friends testing protocol
 
 ### **🏗️ Infrastructure & Deployment**
 - [`infrastructure/README.md`](infrastructure/README.md) - AWS deployment guide
 - [`docs/aws-deployment/`](docs/aws-deployment/) - Detailed AWS documentation
-- [`ARCHITECTURE_ANALYSIS_REPORT.md`](ARCHITECTURE_ANALYSIS_REPORT.md) - System architecture
+- [`docs/analysis/ARCHITECTURE_ANALYSIS_REPORT.md`](docs/analysis/ARCHITECTURE_ANALYSIS_REPORT.md) - System architecture
 
 ### **📈 Analysis & Research**
 - [`research/`](research/) - Economic and technical feasibility studies
 - [`docs/analysis/`](docs/analysis/) - Performance analysis and optimization strategies
-- [`AWS_ARCHITECTURE_SECURITY_COST_REVIEW.md`](AWS_ARCHITECTURE_SECURITY_COST_REVIEW.md) - Security and cost analysis
+- [`docs/analysis/AWS_ARCHITECTURE_SECURITY_COST_REVIEW.md`](docs/analysis/AWS_ARCHITECTURE_SECURITY_COST_REVIEW.md) - Security and cost analysis
+- [`docs/analysis/BREAKTHROUGH_MILESTONE_SUMMARY.md`](docs/analysis/BREAKTHROUGH_MILESTONE_SUMMARY.md) - Major milestone documentation
+
+### **🛠️ Scripts & Setup**
+- [`scripts/setup-friend-node.sh`](scripts/setup-friend-node.sh) - Friend node setup (Linux/Mac)
+- [`scripts/setup-friend-node.ps1`](scripts/setup-friend-node.ps1) - Friend node setup (Windows)
+- [`scripts/setup-node.sh`](scripts/setup-node.sh) - General node setup
+- [`scripts/`](scripts/) - All utility and setup scripts
+
+### **📚 Onboarding**
+- [`docs/onboarding/AGENT_SETUP_PROMPT.md`](docs/onboarding/AGENT_SETUP_PROMPT.md) - AI agent setup guide
 
 ---
 
