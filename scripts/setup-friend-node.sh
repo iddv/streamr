@@ -5,8 +5,8 @@
 
 STREAM_KEY="$1"
 COORDINATOR_URL="http://streamr-p2p-beta-alb-1243469977.eu-west-1.elb.amazonaws.com"
-SRS_RTMP_URL="rtmp://108.129.97.122:1935/live"
-SRS_HLS_URL="http://108.129.97.122:8080/live"
+SRS_RTMP_URL="rtmp://108.129.47.155:1935/live"
+SRS_HLS_URL="http://108.129.47.155:8080/live"
 
 # Colors for pretty output
 RED='\033[0;31m'

@@ -29,11 +29,16 @@ if (-not $StreamKey) {
 }
 
 $CoordinatorUrl = "http://streamr-p2p-beta-alb-1243469977.eu-west-1.elb.amazonaws.com"
+$SrsRtmpUrl = "rtmp://108.129.47.155:1935/live"
+$SrsHlsUrl = "http://108.129.47.155:8080/live"
 $NodeId = "friend_$env:USERNAME_$(Get-Date -UFormat %s)"
 
 Write-Host "${Yellow}📋 Configuration:${NC}"
+Write-Host "  Coordinator: $CoordinatorUrl"
 Write-Host "  Stream Key: $StreamKey"
 Write-Host "  Node ID: $NodeId"
+Write-Host "  RTMP Source: $SrsRtmpUrl/$StreamKey"
+Write-Host "  HLS Output: $SrsHlsUrl/$StreamKey.m3u8"
 Write-Host ""
 
 # Check if Docker is installed
@@ -127,8 +132,10 @@ try {
             Write-Host "${Green}✅ Your public IP: $publicIp${NC}"
             Write-Host ""
             Write-Host "${Yellow}📋 Next Steps:${NC}"
-            Write-Host "  1. Your relay URL: http://$publicIp:8081/live/$StreamKey.m3u8"
-            Write-Host "  2. Send this URL to your friend"
+            Write-Host "  1. Tell your friend to start streaming to: $SrsRtmpUrl/$StreamKey"
+            Write-Host "  2. You can watch the stream at: $SrsHlsUrl/$StreamKey.m3u8"
+            Write-Host "  3. Your relay URL: http://$publicIp:8081/live/$StreamKey.m3u8"
+            Write-Host "  4. Send your relay URL to your friend"
             Write-Host ""
             Write-Host "${Yellow}🚨 IMPORTANT - Router Setup Required:${NC}"
             Write-Host "  Your router needs to forward port 8081 to this computer."

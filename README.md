@@ -44,7 +44,7 @@
 - **📚 Full Documentation**: [docs/README.md](docs/README.md) - Complete documentation hub
 
 ### **🎮 For Streamers**
-1. **Stream to our server**: `rtmp://108.129.97.122:1935/live/your_key`
+1. **Stream to our server**: `rtmp://108.129.47.155:1935/live/your_key`
 2. **Check dashboard**: http://streamr-p2p-beta-alb-1243469977.eu-west-1.elb.amazonaws.com/
 3. **Invite friends**: Share the setup guide with supporters
 

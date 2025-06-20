@@ -93,8 +93,8 @@ After validation testing, we'll have data to decide:
 
 ### **🔄 Active Systems**
 - **Coordinator**: `http://streamr-p2p-beta-alb-1243469977.eu-west-1.elb.amazonaws.com`
-- **Stream Ingest**: `rtmp://108.129.97.122:1935/live/`
-- **HLS Playback**: `http://108.129.97.122:8085/live/`
+- **Stream Ingest**: `rtmp://108.129.47.155:1935/live/`
+- **HLS Playback**: `http://108.129.47.155:8080/live/`
 - **API Dashboard**: All endpoints responding correctly
 
 ---

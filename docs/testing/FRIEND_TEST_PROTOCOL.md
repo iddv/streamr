@@ -26,7 +26,7 @@
 
 ### **Infrastructure Ready**
 - [ ] Coordinator API responding: http://streamr-p2p-beta-alb-1243469977.eu-west-1.elb.amazonaws.com/health
-- [ ] SRS streaming server running: rtmp://108.129.97.122:1935/live/
+- [ ] SRS streaming server running: rtmp://108.129.47.155:1935/live/
 - [ ] Dashboard accessible: http://streamr-p2p-beta-alb-1243469977.eu-west-1.elb.amazonaws.com/dashboard
 - [ ] Setup scripts updated with correct endpoints
 
@@ -49,13 +49,13 @@
 1. **Streamer starts stream**:
    ```bash
    # In OBS or streaming software
-   RTMP URL: rtmp://108.129.97.122:1935/live/
+   RTMP URL: rtmp://108.129.47.155:1935/live/
    Stream Key: friend-test-001
    ```
 
 2. **Verify stream is live**:
    - Check dashboard: Shows active stream
-   - Direct playback: http://108.129.97.122:8080/live/friend-test-001.m3u8
+   - Direct playback: http://108.129.47.155:8080/live/friend-test-001.m3u8
 
 ### **Phase 2: Friend 1 Setup (10-15 minutes)**
 1. **Send setup instructions** to Friend 1

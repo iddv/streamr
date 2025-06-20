@@ -31,7 +31,7 @@
 
 ### 📊 **Current Live System Status**
 - **Coordinator API**: http://streamr-p2p-beta-alb-1243469977.eu-west-1.elb.amazonaws.com/
-- **RTMP Ingest**: rtmp://108.129.97.122:1935/live/
+- **RTMP Ingest**: rtmp://108.129.47.155:1935/live/
 - **Streaming Quality**: 8+ Mbps stable, perfect A/V sync
 - **Uptime**: 100% since deployment
 - **Cost**: ~$45/month (pausable infrastructure)

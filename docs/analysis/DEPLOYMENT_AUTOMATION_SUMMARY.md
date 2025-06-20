@@ -189,14 +189,14 @@ Internet → ALB → EC2 (Coordinator + SRS) → RDS + ElastiCache
 ### **Current System** *(Ready for Testing)*
 - **Web Dashboard**: http://streamr-p2p-beta-alb-1243469977.eu-west-1.elb.amazonaws.com/
 - **API Base**: http://streamr-p2p-beta-alb-1243469977.eu-west-1.elb.amazonaws.com/
-- **RTMP Ingest**: rtmp://108.129.97.122:1935/live/
-- **HLS Playback**: http://108.129.97.122:8080/live/{stream}.m3u8
-- **HTTP-FLV**: http://108.129.97.122:8080/live/{stream}.flv
+- **RTMP Ingest**: rtmp://108.129.47.155:1935/live/
+- **HLS Playback**: http://108.129.47.155:8080/live/{stream}.m3u8
+- **HTTP-FLV**: http://108.129.47.155:8080/live/{stream}.flv
 
 ### **Infrastructure Details**
-- **Instance**: i-0a3441ffa5c91f079 (108.129.97.122)
+- **Elastic IP**: 108.129.47.155 (stable endpoint)
 - **Region**: eu-west-1 (Ireland)
-- **Deployment**: Automated CDK with secrets management
+- **Deployment**: Automated CDK with stable IP architecture
 - **Status**: Production-ready for friends testing
 
 ---
