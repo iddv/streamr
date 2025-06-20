@@ -434,40 +434,18 @@ export class ApplicationStack extends cdk.Stack {
       },
     });
 
-    // 🎯 NEW: Target Group for SRS streaming server (port 8080)
-    const srsTargetGroup = new elbv2.ApplicationTargetGroup(this, 'SRSTargetGroup', {
-      targetGroupName: context.resourceName('srs-tg'),
-      port: 8080,
-      protocol: elbv2.ApplicationProtocol.HTTP,
-      vpc,
-      targets: [new elbv2_targets.InstanceTarget(this.instance)],
-      healthCheck: {
-        enabled: true,
-        path: '/api/v1/version',
-        protocol: elbv2.Protocol.HTTP,
-        port: '8080',
-        healthyThresholdCount: 2,
-        unhealthyThresholdCount: 3,
-        timeout: cdk.Duration.seconds(5),
-        interval: cdk.Duration.seconds(30),
-      },
-    });
-
-    // HTTP Listener for coordinator API (port 80 -> 8000)
-    this.loadBalancer.addListener('CoordinatorHTTPListener', {
+    // HTTP Listener with path-based routing (single listener approach)
+    const listener = this.loadBalancer.addListener('HTTPListener', {
       port: 80,
       protocol: elbv2.ApplicationProtocol.HTTP,
       defaultTargetGroups: [coordinatorTargetGroup],
     });
 
-    // 🎯 NEW: HTTP Listener for SRS streaming (port 8080 -> 8080)
-    this.loadBalancer.addListener('SRSHTTPListener', {
-      port: 8080,
-      protocol: elbv2.ApplicationProtocol.HTTP,
-      defaultTargetGroups: [srsTargetGroup],
-    });
+    // NOTE: For now, keep SRS traffic direct to instance via Elastic IP
+    // Path-based ALB routing for SRS would require significant SRS config changes
+    // This gives us stable endpoints without complex ALB routing conflicts
 
-    // Outputs - UPDATED for stable ALB endpoints
+    // Outputs - UPDATED for stable endpoint architecture
     new cdk.CfnOutput(this, 'LoadBalancerDNS', {
       value: this.loadBalancer.loadBalancerDnsName,
       description: 'Application Load Balancer DNS Name (Stable)',
@@ -480,15 +458,15 @@ export class ApplicationStack extends cdk.Stack {
       exportName: context.stackName('web-dashboard'),
     });
 
-    new cdk.CfnOutput(this, 'HLSStreamingEndpoint', {
-      value: `http://${this.loadBalancer.loadBalancerDnsName}:8080/live/{stream}.m3u8`,
-      description: 'HLS Streaming Endpoint (Stable ALB)',
-      exportName: context.stackName('hls-endpoint'),
+    new cdk.CfnOutput(this, 'SRSStreamingEndpoint', {
+      value: `http://${this.elasticIp.ref}:8080/live/{stream}.m3u8`,
+      description: 'SRS Streaming Endpoint (Stable Elastic IP)',
+      exportName: context.stackName('srs-endpoint'),
     });
 
     new cdk.CfnOutput(this, 'RTMPEndpoint', {
       value: `rtmp://${this.elasticIp.ref}:1935/live`,
-      description: 'RTMP Streaming Endpoint (Direct IP - ALB cannot handle TCP)',
+      description: 'RTMP Publishing Endpoint (Stable Elastic IP)',
       exportName: context.stackName('rtmp-endpoint'),
     });
 
@@ -505,8 +483,8 @@ export class ApplicationStack extends cdk.Stack {
     });
 
     new cdk.CfnOutput(this, 'StableEndpointSummary', {
-      value: `Dashboard: http://${this.loadBalancer.loadBalancerDnsName}/ | HLS: http://${this.loadBalancer.loadBalancerDnsName}:8080/live/{stream}.m3u8 | RTMP: rtmp://${this.elasticIp.ref}:1935/live`,
-      description: '🎯 ALL STABLE ENDPOINTS (Never Change!)',
+      value: `Dashboard: http://${this.loadBalancer.loadBalancerDnsName}/ | Streaming: http://${this.elasticIp.ref}:8080/live/{stream}.m3u8 | RTMP: rtmp://${this.elasticIp.ref}:1935/live`,
+      description: '🎯 STABLE ENDPOINTS - Dashboard via ALB, Streaming via Elastic IP',
       exportName: context.stackName('stable-endpoints'),
     });
   }
