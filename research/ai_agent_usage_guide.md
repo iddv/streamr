@@ -4,6 +4,32 @@
 
 The StreamrP2P project includes an AI agent roleplay system designed to provide specialized consultation from three domain expert perspectives. This system allows you to present product decisions, documents, or strategic questions to AI agents that embody the decision-making frameworks and expertise of critical platform roles.
 
+## "Consult with Our Zen Advisors" Workflow
+
+**This is a peer review process, not delegation.** When you request to **"consult with our zen advisors"**, the AI agent will:
+
+1. **Do Initial Work**: Research, analyze, and develop initial solution/design based on your request
+2. **Present to Zen Advisors**: Use zen tools to present the initial work to each advisor role for expert review:
+   - 🔧 **Infrastructure Visionary** - Technical architecture review
+   - 💰 **Economic Justice Architect** - Economic impact analysis  
+   - 🌍 **Human Connection Catalyst** - Community adoption assessment
+3. **Gather Expert Insights**: Collect advisor feedback, concerns, and improvement suggestions
+4. **Synthesize Improved Solution**: Integrate advisor insights to refine and improve the initial work
+
+### Example Request Flow:
+```
+You: "I want to consult with our zen advisors about implementing mobile notifications."
+
+AI Agent: 
+→ Researches mobile notification best practices and designs initial implementation plan
+→ Presents plan to Infrastructure Visionary for technical review and optimization suggestions
+→ Presents plan to Economic Justice Architect for user earning impact analysis
+→ Presents plan to Human Connection Catalyst for community engagement assessment
+→ Synthesizes all feedback into refined implementation strategy
+```
+
+**Key Principle**: Zen advisors provide expert scrutiny and insights to improve your work, not replace your thinking. You lead the design process; they provide quality assurance and enhancement.
+
 ## Available AI Agent Personas
 
 ### 🔧 Decentralized Infrastructure Visionary
@@ -23,27 +49,40 @@ The StreamrP2P project includes an AI agent roleplay system designed to provide 
 
 ## How to Use the AI Agent System
 
-### 1. Select the Appropriate Agent(s)
+### Option 1: Quick Multi-Perspective Consultation
+**Recommended for most decisions**
+
+Simply say: **"Consult with our zen advisors about [your question/decision]"**
+
+The AI agent will automatically:
+- Research and develop an initial solution/approach
+- Present the work to all three zen advisors for expert review
+- Gather their feedback, concerns, and improvement suggestions
+- Deliver a refined solution incorporating their insights
+
+### Option 2: Individual Agent Consultation
+
+#### 1. Select the Appropriate Agent(s)
 Choose the agent(s) whose expertise aligns with your question or decision:
 - **Technical questions**: Decentralized Infrastructure Visionary
 - **Economics/tokenomics questions**: Economic Justice Architect  
 - **Community/partnerships questions**: Human Connection Catalyst
 - **Complex decisions**: Multiple agents for different perspectives
 
-### 2. Frame Your Question or Scenario
+#### 2. Frame Your Question or Scenario
 Provide context about:
 - The specific decision or challenge you're facing
 - Any relevant background information about the platform
 - What kind of advice or analysis you're seeking
 
-### 3. Request the Agent Perspective
+#### 3. Request the Agent Perspective
 Ask for the AI agent to roleplay as the specific persona:
 
 ```
 "Please roleplay as the Decentralized Infrastructure Visionary from StreamrP2P and provide your perspective on..."
 ```
 
-### 4. Review the Agent Response
+#### 4. Review the Agent Response
 The AI agent will respond with:
 - Analysis from that role's perspective and expertise
 - Decision-making framework application

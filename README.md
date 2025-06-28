@@ -58,6 +58,18 @@
 2. **Start services**: `cd coordinator && docker-compose up`
 3. **Run tests**: `python -m pytest tests/`
 
+### **🧠 AI Advisory Consultation**
+
+StreamrP2P includes an AI advisory system with three specialized consultant personas:
+
+- **🔧 Infrastructure Visionary**: Technical architecture and P2P optimization
+- **💰 Economic Justice Architect**: Tokenomics and creator economics  
+- **🌍 Human Connection Catalyst**: Community building and user adoption
+
+**Usage**: When working with this project, you can **"consult with our zen advisors"** to get expert review and refinement of your work, designs, or decisions from all three specialized perspectives.
+
+👉 **[AI Agent Usage Guide](research/ai_agent_usage_guide.md)** - Complete consultation workflow and examples
+
 ---
 
 ## 🛠️ **Technical Stack**
