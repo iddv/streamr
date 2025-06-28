@@ -84,18 +84,14 @@ jobs:
         working-directory: infrastructure
         run: npm test
 
-      - name: Deploy GitHub OIDC Stack (if needed)
+      - name: Deploy GitHub OIDC Stack
         working-directory: infrastructure
         run: |
-          # Check if OIDC stack exists, deploy if not
+          # Always deploy OIDC stack to ensure permissions are up to date
           STAGE=${{ github.event.inputs.stage || 'beta' }}
           OIDC_STACK_NAME="streamr-p2p-$STAGE-ireland-github-oidc"
-          if ! aws cloudformation describe-stacks --stack-name "$OIDC_STACK_NAME" 2>/dev/null; then
-            echo "🔐 Deploying GitHub OIDC stack: $OIDC_STACK_NAME"
-            npx cdk deploy "$OIDC_STACK_NAME" --require-approval never
-          else
-            echo "✅ GitHub OIDC stack already exists: $OIDC_STACK_NAME"
-          fi
+          echo "🔐 Deploying/updating GitHub OIDC stack: $OIDC_STACK_NAME"
+          npx cdk deploy "$OIDC_STACK_NAME" --require-approval never
 
       - name: Login to Amazon ECR
         id: login-ecr
