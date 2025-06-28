@@ -5,6 +5,8 @@
 ALTER TABLE streams ADD COLUMN IF NOT EXISTS live_started_at TIMESTAMP;
 ALTER TABLE streams ADD COLUMN IF NOT EXISTS offline_at TIMESTAMP;
 ALTER TABLE streams ADD COLUMN IF NOT EXISTS testing_started_at TIMESTAMP;
+ALTER TABLE streams ADD COLUMN IF NOT EXISTS stale_at TIMESTAMP;
+ALTER TABLE streams ADD COLUMN IF NOT EXISTS archived_at TIMESTAMP;
 
 -- 2. Update status field to use new lifecycle values  
 -- Current status values: "active", "paused", "completed"
@@ -29,8 +31,10 @@ COMMENT ON COLUMN streams.status IS 'Stream lifecycle status: READY, TESTING, LI
 COMMENT ON COLUMN streams.live_started_at IS 'Timestamp when stream transitioned to LIVE status';
 COMMENT ON COLUMN streams.offline_at IS 'Timestamp when stream went OFFLINE';
 COMMENT ON COLUMN streams.testing_started_at IS 'Timestamp when stream started TESTING phase';
+COMMENT ON COLUMN streams.stale_at IS 'Timestamp when stream became STALE (inactive)';
+COMMENT ON COLUMN streams.archived_at IS 'Timestamp when stream was ARCHIVED (terminal state)';
 
 -- 6. Show current stream statuses after migration
-SELECT stream_id, status, created_at, live_started_at, offline_at 
+SELECT stream_id, status, created_at, live_started_at, offline_at, testing_started_at, stale_at, archived_at
 FROM streams 
 ORDER BY created_at DESC; 

@@ -11,6 +11,15 @@ class StreamStatus(str, Enum):
     STALE = "STALE"
     ARCHIVED = "ARCHIVED"
 
+class StreamStatusFilter(str, Enum):
+    ALL = "ALL"
+    READY = "READY"
+    TESTING = "TESTING"
+    LIVE = "LIVE"
+    OFFLINE = "OFFLINE"
+    STALE = "STALE"
+    ARCHIVED = "ARCHIVED"
+
 class StreamCreate(BaseModel):
     stream_id: str
     sponsor_address: str
@@ -30,6 +39,8 @@ class StreamResponse(BaseModel):
     live_started_at: Optional[datetime] = None
     offline_at: Optional[datetime] = None
     testing_started_at: Optional[datetime] = None
+    stale_at: Optional[datetime] = None
+    archived_at: Optional[datetime] = None
     
     class Config:
         from_attributes = True

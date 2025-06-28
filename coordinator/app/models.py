@@ -20,6 +20,8 @@ class Stream(Base):
     live_started_at = Column(DateTime)
     offline_at = Column(DateTime)
     testing_started_at = Column(DateTime)
+    stale_at = Column(DateTime)
+    archived_at = Column(DateTime)
     
     # Relationships
     nodes = relationship("Node", back_populates="stream")

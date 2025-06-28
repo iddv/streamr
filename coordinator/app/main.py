@@ -8,7 +8,7 @@ Proprietary and Confidential Software. Unauthorized use prohibited.
 
 from fastapi import FastAPI, HTTPException, Depends
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 import os
 from dotenv import load_dotenv
 
@@ -51,9 +51,14 @@ async def register_stream(stream: schemas.StreamCreate, db: Session = Depends(ge
     return db_stream
 
 @app.get("/streams", response_model=List[schemas.StreamResponse])
-async def list_streams(db: Session = Depends(get_db)):
-    """List all streams (for admin/debugging)"""
-    streams = db.query(models.Stream).all()
+async def list_streams(status: schemas.StreamStatusFilter = schemas.StreamStatusFilter.ALL, db: Session = Depends(get_db)):
+    """List streams. For backward compatibility, returns all streams by default."""
+    query = db.query(models.Stream)
+    # Apply filter only if a status other than 'ALL' is provided
+    if status != schemas.StreamStatusFilter.ALL:
+        query = query.filter(models.Stream.status == status.value)
+    
+    streams = query.all()
     return streams
 
 @app.get("/streams/live", response_model=List[schemas.StreamResponse])
@@ -78,7 +83,9 @@ async def update_stream_status(
         'READY': ['TESTING', 'LIVE'],
         'TESTING': ['LIVE', 'OFFLINE', 'READY'], 
         'LIVE': ['OFFLINE'],
-        'OFFLINE': ['READY']  # Allow restart
+        'OFFLINE': ['READY', 'STALE', 'ARCHIVED'],  # Allow archiving from OFFLINE
+        'STALE': ['READY', 'OFFLINE', 'ARCHIVED'],  # Allow recovery from STALE
+        'ARCHIVED': []  # Terminal state, no transitions out
     }
     
     new_status = status_update.status.value
@@ -90,12 +97,23 @@ async def update_stream_status(
     
     # Update status with timestamp
     stream.status = new_status
-    if new_status == 'TESTING':
+    if new_status == 'READY':
+        # Clear all lifecycle timestamps for clean restart
+        stream.testing_started_at = None
+        stream.live_started_at = None
+        stream.offline_at = None
+        stream.stale_at = None
+        stream.archived_at = None
+    elif new_status == 'TESTING':
         stream.testing_started_at = datetime.utcnow()
     elif new_status == 'LIVE':
         stream.live_started_at = datetime.utcnow()
     elif new_status == 'OFFLINE':
         stream.offline_at = datetime.utcnow()
+    elif new_status == 'STALE':
+        stream.stale_at = datetime.utcnow()
+    elif new_status == 'ARCHIVED':
+        stream.archived_at = datetime.utcnow()
     
     db.commit()
     return {"status": "updated", "new_state": new_status}
