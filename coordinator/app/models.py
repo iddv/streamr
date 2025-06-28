@@ -13,8 +13,13 @@ class Stream(Base):
     sponsor_address = Column(String, nullable=False)
     token_balance = Column(Float, default=0.0)
     rtmp_url = Column(String, nullable=False)
-    status = Column(String, default="active")  # active, paused, completed
+    status = Column(String, default="READY")  # READY, TESTING, LIVE, OFFLINE, STALE, ARCHIVED
     created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Lifecycle timestamps
+    live_started_at = Column(DateTime)
+    offline_at = Column(DateTime)
+    testing_started_at = Column(DateTime)
     
     # Relationships
     nodes = relationship("Node", back_populates="stream")

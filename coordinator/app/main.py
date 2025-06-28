@@ -15,6 +15,7 @@ from dotenv import load_dotenv
 from . import models, schemas, database
 from .database import get_db
 from .payout_service import PayoutService
+from datetime import datetime
 
 load_dotenv()
 
@@ -51,9 +52,53 @@ async def register_stream(stream: schemas.StreamCreate, db: Session = Depends(ge
 
 @app.get("/streams", response_model=List[schemas.StreamResponse])
 async def list_streams(db: Session = Depends(get_db)):
-    """List all active streams for node operators to discover"""
-    streams = db.query(models.Stream).filter(models.Stream.status == "active").all()
+    """List all streams (for admin/debugging)"""
+    streams = db.query(models.Stream).all()
     return streams
+
+@app.get("/streams/live", response_model=List[schemas.StreamResponse])
+async def get_live_streams(db: Session = Depends(get_db)):
+    """Supporter discovery endpoint - only LIVE streams"""
+    streams = db.query(models.Stream).filter(models.Stream.status == "LIVE").all()
+    return streams
+
+@app.patch("/streams/{stream_id}/status")
+async def update_stream_status(
+    stream_id: str, 
+    status_update: schemas.StreamStatusUpdate,
+    db: Session = Depends(get_db)
+):
+    """Manual status transitions for streamers"""
+    stream = db.query(models.Stream).filter(models.Stream.stream_id == stream_id).first()
+    if not stream:
+        raise HTTPException(status_code=404, detail="Stream not found")
+    
+    # Validate state transitions
+    valid_transitions = {
+        'READY': ['TESTING', 'LIVE'],
+        'TESTING': ['LIVE', 'OFFLINE', 'READY'], 
+        'LIVE': ['OFFLINE'],
+        'OFFLINE': ['READY']  # Allow restart
+    }
+    
+    new_status = status_update.status.value
+    if new_status not in valid_transitions.get(stream.status, []):
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Invalid transition: {stream.status} → {new_status}"
+        )
+    
+    # Update status with timestamp
+    stream.status = new_status
+    if new_status == 'TESTING':
+        stream.testing_started_at = datetime.utcnow()
+    elif new_status == 'LIVE':
+        stream.live_started_at = datetime.utcnow()
+    elif new_status == 'OFFLINE':
+        stream.offline_at = datetime.utcnow()
+    
+    db.commit()
+    return {"status": "updated", "new_state": new_status}
 
 @app.delete("/streams/{stream_id}")
 async def delete_stream(stream_id: str, db: Session = Depends(get_db)):

@@ -1,6 +1,15 @@
 from pydantic import BaseModel
 from datetime import datetime
 from typing import Optional, List
+from enum import Enum
+
+class StreamStatus(str, Enum):
+    READY = "READY"
+    TESTING = "TESTING" 
+    LIVE = "LIVE"
+    OFFLINE = "OFFLINE"
+    STALE = "STALE"
+    ARCHIVED = "ARCHIVED"
 
 class StreamCreate(BaseModel):
     stream_id: str
@@ -17,8 +26,16 @@ class StreamResponse(BaseModel):
     status: str
     created_at: datetime
     
+    # Lifecycle timestamps
+    live_started_at: Optional[datetime] = None
+    offline_at: Optional[datetime] = None
+    testing_started_at: Optional[datetime] = None
+    
     class Config:
         from_attributes = True
+
+class StreamStatusUpdate(BaseModel):
+    status: StreamStatus
 
 class NodeHeartbeat(BaseModel):
     node_id: str
