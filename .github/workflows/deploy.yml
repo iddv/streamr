@@ -141,6 +141,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Setup Python for Integration Tests
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python Test Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-test.txt
+
       - name: Configure AWS credentials using OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -206,4 +216,28 @@ jobs:
             exit 1
           fi
           
-          echo "✅ All sanity tests passed!" 
+          echo "✅ All sanity tests passed!"
+
+      - name: Run Stream Lifecycle Integration Tests
+        run: |
+          STAGE=${{ github.event.inputs.stage || 'beta' }}
+          APPLICATION_STACK_NAME="streamr-p2p-$STAGE-ireland-application"
+          
+          # Get ALB DNS name for coordinator URL
+          ALB_DNS=$(aws cloudformation describe-stacks \
+            --stack-name "$APPLICATION_STACK_NAME" \
+            --query 'Stacks[0].Outputs[?OutputKey==`LoadBalancerDNS`].OutputValue' \
+            --output text)
+          
+          COORDINATOR_URL="http://$ALB_DNS"
+          echo "🧪 Running Integration Tests against deployed coordinator: $COORDINATOR_URL"
+          
+          # Run parameterized integration tests against the deployed system
+          export TEST_TARGET="$COORDINATOR_URL"
+          ./scripts/run-integration-tests.sh "$COORDINATOR_URL" smoke
+          
+          # If smoke tests pass, also run lifecycle tests to validate the Stream Lifecycle System
+          if [ $? -eq 0 ]; then
+            echo "✅ Smoke tests passed, running lifecycle validation..."
+            ./scripts/run-integration-tests.sh "$COORDINATOR_URL" lifecycle
+          fi 
