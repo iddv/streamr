@@ -319,6 +319,105 @@ export class GitHubOidcStack extends cdk.Stack {
       ],
     }));
 
+    // ECR permissions for Docker image management
+    this.githubActionsRole.addToPolicy(new iam.PolicyStatement({
+      sid: 'ECRPermissions',
+      effect: iam.Effect.ALLOW,
+      actions: [
+        'ecr:GetAuthorizationToken',
+        'ecr:BatchCheckLayerAvailability',
+        'ecr:GetDownloadUrlForLayer',
+        'ecr:BatchGetImage',
+        'ecr:InitiateLayerUpload',
+        'ecr:UploadLayerPart',
+        'ecr:CompleteLayerUpload',
+        'ecr:PutImage',
+        'ecr:CreateRepository',
+        'ecr:DeleteRepository',
+        'ecr:DescribeRepositories',
+        'ecr:ListImages',
+        'ecr:DescribeImages',
+        'ecr:BatchDeleteImage',
+        'ecr:SetRepositoryPolicy',
+        'ecr:GetRepositoryPolicy',
+        'ecr:DeleteRepositoryPolicy',
+        'ecr:PutImageScanningConfiguration',
+        'ecr:GetImageScanningConfiguration',
+        'ecr:TagResource',
+        'ecr:UntagResource',
+        'ecr:ListTagsForResource',
+      ],
+      resources: [
+        `arn:aws:ecr:${this.region}:${this.account}:repository/streamr-*`,
+      ],
+    }));
+
+    // ECR GetAuthorizationToken requires * resource
+    this.githubActionsRole.addToPolicy(new iam.PolicyStatement({
+      sid: 'ECRAuthorizationToken',
+      effect: iam.Effect.ALLOW,
+      actions: [
+        'ecr:GetAuthorizationToken',
+      ],
+      resources: ['*'], // AWS requirement for GetAuthorizationToken
+    }));
+
+    // ECS permissions for Fargate deployment
+    this.githubActionsRole.addToPolicy(new iam.PolicyStatement({
+      sid: 'ECSPermissions',
+      effect: iam.Effect.ALLOW,
+      actions: [
+        'ecs:CreateCluster',
+        'ecs:DeleteCluster',
+        'ecs:DescribeClusters',
+        'ecs:UpdateCluster',
+        'ecs:CreateService',
+        'ecs:DeleteService',
+        'ecs:DescribeServices',
+        'ecs:UpdateService',
+        'ecs:RegisterTaskDefinition',
+        'ecs:DeregisterTaskDefinition',
+        'ecs:DescribeTaskDefinition',
+        'ecs:ListTaskDefinitions',
+        'ecs:RunTask',
+        'ecs:StopTask',
+        'ecs:DescribeTasks',
+        'ecs:ListTasks',
+        'ecs:TagResource',
+        'ecs:UntagResource',
+        'ecs:ListTagsForResource',
+        'ecs:PutClusterCapacityProviders',
+        'ecs:PutAccountSetting',
+        'ecs:PutAccountSettingDefault',
+      ],
+      resources: [
+        `arn:aws:ecs:${this.region}:${this.account}:cluster/streamr-*`,
+        `arn:aws:ecs:${this.region}:${this.account}:service/streamr-*/*`,
+        `arn:aws:ecs:${this.region}:${this.account}:task-definition/streamr-*:*`,
+        `arn:aws:ecs:${this.region}:${this.account}:task/streamr-*/*`,
+        `arn:aws:ecs:${this.region}:${this.account}:container-instance/streamr-*/*`,
+      ],
+    }));
+
+    // CloudWatch Logs permissions for ECS containers
+    this.githubActionsRole.addToPolicy(new iam.PolicyStatement({
+      sid: 'CloudWatchLogsPermissions',
+      effect: iam.Effect.ALLOW,
+      actions: [
+        'logs:CreateLogGroup',
+        'logs:DeleteLogGroup',
+        'logs:DescribeLogGroups',
+        'logs:PutRetentionPolicy',
+        'logs:TagLogGroup',
+        'logs:UntagLogGroup',
+        'logs:ListTagsLogGroup',
+      ],
+      resources: [
+        `arn:aws:logs:${this.region}:${this.account}:log-group:/aws/ecs/streamr-*`,
+        `arn:aws:logs:${this.region}:${this.account}:log-group:/aws/ecs/streamr-*:*`,
+      ],
+    }));
+
     // STS permissions for CDK deployment roles
     this.githubActionsRole.addToPolicy(new iam.PolicyStatement({
       sid: 'STSAssumeRolePermissions',
