@@ -55,6 +55,23 @@ async def list_streams(db: Session = Depends(get_db)):
     streams = db.query(models.Stream).filter(models.Stream.status == "active").all()
     return streams
 
+@app.delete("/streams/{stream_id}")
+async def delete_stream(stream_id: str, db: Session = Depends(get_db)):
+    """Delete a stream (cleanup old/inactive streams)"""
+    stream = db.query(models.Stream).filter(models.Stream.stream_id == stream_id).first()
+    if not stream:
+        raise HTTPException(status_code=404, detail="Stream not found")
+    
+    # Also delete related nodes and probe results
+    db.query(models.Node).filter(models.Node.stream_id == stream_id).delete()
+    # Note: ProbeResult cleanup would go here if needed
+    
+    # Delete the stream
+    db.delete(stream)
+    db.commit()
+    
+    return {"status": "success", "message": f"Stream {stream_id} deleted"}
+
 @app.post("/nodes/heartbeat")
 async def node_heartbeat(heartbeat: schemas.NodeHeartbeat, db: Session = Depends(get_db)):
     """Receive heartbeat from node operators"""
