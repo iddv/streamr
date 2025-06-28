@@ -84,10 +84,6 @@ jobs:
         working-directory: infrastructure
         run: npm test
 
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
       - name: Deploy GitHub OIDC Stack (if needed)
         working-directory: infrastructure
         run: |
@@ -100,6 +96,10 @@ jobs:
           else
             echo "✅ GitHub OIDC stack already exists: $OIDC_STACK_NAME"
           fi
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
 
       - name: Deploy Foundation Stack
         working-directory: infrastructure
