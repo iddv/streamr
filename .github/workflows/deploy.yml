@@ -87,11 +87,10 @@ jobs:
       - name: Deploy GitHub OIDC Stack
         working-directory: infrastructure
         run: |
-          # Always deploy OIDC stack to ensure permissions are up to date
           STAGE=${{ github.event.inputs.stage || 'beta' }}
           OIDC_STACK_NAME="streamr-p2p-$STAGE-ireland-github-oidc"
-          echo "🔐 Deploying/updating GitHub OIDC stack: $OIDC_STACK_NAME"
-          npx cdk deploy "$OIDC_STACK_NAME" --require-approval never
+          echo "🔐 Deploying GitHub OIDC stack: $OIDC_STACK_NAME"
+          npx cdk deploy "$OIDC_STACK_NAME" --require-approval never --context stage=$STAGE
 
       - name: Login to Amazon ECR
         id: login-ecr
