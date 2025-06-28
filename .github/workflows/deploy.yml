@@ -84,6 +84,10 @@ jobs:
         working-directory: infrastructure
         run: npm test
 
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
       - name: Deploy GitHub OIDC Stack (if needed)
         working-directory: infrastructure
         run: |
@@ -105,13 +109,47 @@ jobs:
           echo "🏗️ Deploying foundation stack: $FOUNDATION_STACK_NAME"
           npx cdk deploy "$FOUNDATION_STACK_NAME" --require-approval never --context stage=$STAGE
 
+      - name: Build and push Docker image
+        env:
+          STAGE: ${{ github.event.inputs.stage || 'beta' }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          # Get ECR repository URI from the foundation stack
+          FOUNDATION_STACK_NAME="streamr-p2p-$STAGE-ireland-foundation"
+          ECR_REPOSITORY_URI=$(aws cloudformation describe-stacks \
+            --stack-name "$FOUNDATION_STACK_NAME" \
+            --query 'Stacks[0].Outputs[?OutputKey==`ECRRepositoryUri`].OutputValue' \
+            --output text)
+          
+          if [ -z "$ECR_REPOSITORY_URI" ]; then
+            echo "::error::ECR Repository URI not found in foundation stack outputs. Cannot proceed."
+            exit 1
+          fi
+          
+          echo "🐋 Building and pushing Docker image..."
+          echo "📦 ECR Repository: $ECR_REPOSITORY_URI"
+          echo "🏷️ Image Tag: $IMAGE_TAG"
+          
+          # Build the coordinator Docker image with both tags
+          cd coordinator
+          docker build -t "$ECR_REPOSITORY_URI:$IMAGE_TAG" -t "$ECR_REPOSITORY_URI:latest" .
+          
+          # Push both tagged and latest images
+          docker push "$ECR_REPOSITORY_URI:$IMAGE_TAG"
+          docker push "$ECR_REPOSITORY_URI:latest"
+          
+          echo "✅ Docker image pushed successfully"
+
       - name: Deploy Application Stack
         working-directory: infrastructure
+        env:
+          IMAGE_TAG: ${{ github.sha }}
         run: |
           STAGE=${{ github.event.inputs.stage || 'beta' }}
           APPLICATION_STACK_NAME="streamr-p2p-$STAGE-ireland-application"
           echo "🚀 Deploying application stack: $APPLICATION_STACK_NAME"
-          npx cdk deploy "$APPLICATION_STACK_NAME" --require-approval never --context stage=$STAGE
+          echo "🏷️ Using image tag: $IMAGE_TAG"
+          npx cdk deploy "$APPLICATION_STACK_NAME" --require-approval never --context stage=$STAGE --context imageTag=$IMAGE_TAG
 
       - name: Output deployment info
         working-directory: infrastructure

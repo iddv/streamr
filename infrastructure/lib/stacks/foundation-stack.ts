@@ -3,6 +3,8 @@ import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as rds from 'aws-cdk-lib/aws-rds';
 import * as elasticache from 'aws-cdk-lib/aws-elasticache';
 import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as ecr from 'aws-cdk-lib/aws-ecr';
+import * as ecs from 'aws-cdk-lib/aws-ecs';
 import { Construct } from 'constructs';
 import { DeploymentContext } from '../config/types';
 import { streamrConfig } from '../config/streamr-config';
@@ -18,6 +20,8 @@ export class FoundationStack extends cdk.Stack {
   public readonly dbSecurityGroup: ec2.SecurityGroup;
   public readonly cacheSecurityGroup: ec2.SecurityGroup;
   public readonly deploymentBucket: s3.Bucket;
+  public readonly ecrRepository: ecr.Repository;
+  public readonly ecsCluster: ecs.Cluster;
 
   constructor(scope: Construct, id: string, props: FoundationStackProps) {
     super(scope, id, props);
@@ -173,6 +177,27 @@ export class FoundationStack extends cdk.Stack {
         : cdk.RemovalPolicy.DESTROY,
     });
 
+    // ECR Repository for container images
+    this.ecrRepository = new ecr.Repository(this, 'Repository', {
+      repositoryName: context.resourceName('coordinator'),
+      imageScanOnPush: true,
+      imageTagMutability: ecr.TagMutability.MUTABLE,
+      lifecycleRules: [{
+        description: 'Keep last 10 images',
+        maxImageCount: 10,
+      }],
+      removalPolicy: stageConfig.isProd 
+        ? cdk.RemovalPolicy.RETAIN 
+        : cdk.RemovalPolicy.DESTROY,
+    });
+
+    // ECS Cluster
+    this.ecsCluster = new ecs.Cluster(this, 'Cluster', {
+      clusterName: context.resourceName('cluster'),
+      vpc: this.vpc,
+      containerInsightsV2: stageConfig.monitoring.detailed ? ecs.ContainerInsights.ENABLED : ecs.ContainerInsights.DISABLED,
+    });
+
     // Outputs for use by other stacks
     new cdk.CfnOutput(this, 'VpcId', {
       value: this.vpc.vpcId,
@@ -214,6 +239,18 @@ export class FoundationStack extends cdk.Stack {
       value: this.deploymentBucket.bucketName,
       description: 'S3 Deployment Bucket Name',
       exportName: context.stackName('deployment-bucket'),
+    });
+
+    new cdk.CfnOutput(this, 'ECRRepositoryUri', {
+      value: this.ecrRepository.repositoryUri,
+      description: 'ECR Repository URI',
+      exportName: context.stackName('ecr-repository-uri'),
+    });
+
+    new cdk.CfnOutput(this, 'ECSClusterName', {
+      value: this.ecsCluster.clusterName,
+      description: 'ECS Cluster Name',
+      exportName: context.stackName('ecs-cluster-name'),
     });
   }
 

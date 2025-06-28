@@ -57,13 +57,15 @@ const foundationStack = new FoundationStack(app, context.stackName('foundation')
   },
 });
 
-// Application Stack - EC2, ALB
+// Application Stack - ECS Fargate, ALB, NLB
 const applicationStack = new ApplicationStack(app, context.stackName('application'), {
   context,
   vpc: foundationStack.vpc,
   dbSecurityGroup: foundationStack.dbSecurityGroup,
   cacheSecurityGroup: foundationStack.cacheSecurityGroup,
   deploymentBucket: foundationStack.deploymentBucket,
+  ecrRepository: foundationStack.ecrRepository,
+  ecsCluster: foundationStack.ecsCluster,
   env: {
     region: context.region,
   },

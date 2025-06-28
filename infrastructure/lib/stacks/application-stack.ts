@@ -1,9 +1,11 @@
 import * as cdk from 'aws-cdk-lib';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
-import * as elbv2_targets from 'aws-cdk-lib/aws-elasticloadbalancingv2-targets';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as ecs from 'aws-cdk-lib/aws-ecs';
+import * as ecr from 'aws-cdk-lib/aws-ecr';
+import * as logs from 'aws-cdk-lib/aws-logs';
 import { Construct } from 'constructs';
 import { DeploymentContext } from '../config/types';
 import { streamrConfig } from '../config/streamr-config';
@@ -14,19 +16,24 @@ export interface ApplicationStackProps extends cdk.StackProps {
   readonly dbSecurityGroup: ec2.SecurityGroup;
   readonly cacheSecurityGroup: ec2.SecurityGroup;
   readonly deploymentBucket: s3.IBucket;
+  readonly ecrRepository: ecr.IRepository;
+  readonly ecsCluster: ecs.ICluster;
 }
 
 export class ApplicationStack extends cdk.Stack {
-  public readonly instance: ec2.Instance;
+  public readonly service: ecs.FargateService;
   public readonly loadBalancer: elbv2.ApplicationLoadBalancer;
-  public readonly instanceSecurityGroup: ec2.SecurityGroup;
-  public readonly elasticIp: ec2.CfnEIP;
+  public readonly serviceSecurityGroup: ec2.SecurityGroup;
+  public readonly taskDefinition: ecs.FargateTaskDefinition;
 
   constructor(scope: Construct, id: string, props: ApplicationStackProps) {
     super(scope, id, props);
 
-    const { context, vpc, dbSecurityGroup, cacheSecurityGroup, deploymentBucket } = props;
+    const { context, vpc, dbSecurityGroup, cacheSecurityGroup, deploymentBucket, ecrRepository, ecsCluster } = props;
     const { stageConfig } = context;
+
+    // Get image tag from CDK context (passed from CI/CD pipeline)
+    const imageTag = this.node.tryGetContext('imageTag') || 'latest';
 
     // Tags for all resources in this stack
     cdk.Tags.of(this).add('Project', streamrConfig.app.name);
@@ -34,11 +41,11 @@ export class ApplicationStack extends cdk.Stack {
     cdk.Tags.of(this).add('Region', context.region);
     cdk.Tags.of(this).add('Owner', streamrConfig.app.owner);
 
-    // Security Group for EC2 Instance
-    this.instanceSecurityGroup = new ec2.SecurityGroup(this, 'InstanceSecurityGroup', {
+    // Security Group for ECS Service
+    this.serviceSecurityGroup = new ec2.SecurityGroup(this, 'ServiceSecurityGroup', {
       vpc,
-      securityGroupName: context.resourceName('instance-sg'),
-      description: `EC2 instance security group for ${context.stage} stage`,
+      securityGroupName: context.resourceName('service-sg'),
+      description: `ECS service security group for ${context.stage} stage`,
       allowAllOutbound: true,
     });
 
@@ -62,75 +69,77 @@ export class ApplicationStack extends cdk.Stack {
       'Allow HTTPS traffic'
     );
 
-    // 🎯 IMPROVED: Allow SRS HTTP/HLS traffic to ALB (port 8080)
+    // Allow SRS HTTP/HLS traffic to ALB (port 8080)
     albSecurityGroup.addIngressRule(
       ec2.Peer.anyIpv4(),
       ec2.Port.tcp(8080),
       'Allow SRS HTTP/HLS streaming traffic to ALB'
     );
 
-    // Allow RTMP traffic directly to instance (RTMP requires TCP, ALB is HTTP-only)
-    this.instanceSecurityGroup.addIngressRule(
+    // Allow RTMP traffic directly to service (RTMP requires TCP, ALB is HTTP-only)
+    this.serviceSecurityGroup.addIngressRule(
       ec2.Peer.anyIpv4(),
       ec2.Port.tcp(1935),
       'Allow RTMP streaming traffic (direct access only)'
     );
 
-    // 🎯 FIXED: Allow SRS HTTP/HLS traffic directly from public internet
-    this.instanceSecurityGroup.addIngressRule(
+    // Allow SRS HTTP/HLS traffic directly from public internet
+    this.serviceSecurityGroup.addIngressRule(
       ec2.Peer.anyIpv4(),
       ec2.Port.tcp(8080),
       'Allow SRS HTTP/HLS streaming traffic (public access for friends)'
     );
 
-    // Allow HTTP traffic from ALB to instance (coordinator API)
-    this.instanceSecurityGroup.addIngressRule(
+    // Allow HTTP traffic from ALB to service (coordinator API)
+    this.serviceSecurityGroup.addIngressRule(
       albSecurityGroup,
       ec2.Port.tcp(8000),
       'Allow HTTP traffic from ALB to coordinator'
     );
 
-    // 🎯 IMPROVED: Allow SRS HTTP/HLS traffic from ALB to instance  
-    this.instanceSecurityGroup.addIngressRule(
+    // Allow SRS HTTP/HLS traffic from ALB to service  
+    this.serviceSecurityGroup.addIngressRule(
       albSecurityGroup,
       ec2.Port.tcp(8080),
-      'Allow SRS HTTP/HLS traffic from ALB to instance'  
+      'Allow SRS HTTP/HLS traffic from ALB to service'  
     );
 
-    // Allow SSH access (for beta stage only)
-    if (!stageConfig.isProd) {
-      this.instanceSecurityGroup.addIngressRule(
-        ec2.Peer.anyIpv4(),
-        ec2.Port.tcp(22),
-        'Allow SSH access (non-prod only)'
-      );
-    }
-
-    // Add egress rules to instance security group to connect to database and cache
-    this.instanceSecurityGroup.addEgressRule(
+    // Add egress rules to service security group to connect to database and cache
+    this.serviceSecurityGroup.addEgressRule(
       ec2.Peer.ipv4(vpc.vpcCidrBlock),
       ec2.Port.tcp(streamrConfig.database.port),
       'Allow database access from application'
     );
 
-    this.instanceSecurityGroup.addEgressRule(
+    this.serviceSecurityGroup.addEgressRule(
       ec2.Peer.ipv4(vpc.vpcCidrBlock),
       ec2.Port.tcp(streamrConfig.cache.port),
       'Allow cache access from application'
     );
 
-    // IAM Role for EC2 Instance
-    const instanceRole = new iam.Role(this, 'InstanceRole', {
-      roleName: context.resourceName('instance-role'),
-      assumedBy: new iam.ServicePrincipal('ec2.amazonaws.com'),
+    // IAM Task Execution Role
+    const taskExecutionRole = new iam.Role(this, 'TaskExecutionRole', {
+      roleName: context.resourceName('task-execution-role'),
+      assumedBy: new iam.ServicePrincipal('ecs-tasks.amazonaws.com'),
       managedPolicies: [
-        iam.ManagedPolicy.fromAwsManagedPolicyName('CloudWatchAgentServerPolicy'),
-        iam.ManagedPolicy.fromAwsManagedPolicyName('AmazonSSMManagedInstanceCore'),
+        iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AmazonECSTaskExecutionRolePolicy'),
       ],
     });
 
-    // Allow instance to read secrets
-    instanceRole.addToPolicy(new iam.PolicyStatement({
+    // Allow task execution role to pull images from ECR
+    ecrRepository.grantPull(taskExecutionRole);
+
+    // IAM Task Role
+    const taskRole = new iam.Role(this, 'TaskRole', {
+      roleName: context.resourceName('task-role'),
+      assumedBy: new iam.ServicePrincipal('ecs-tasks.amazonaws.com'),
+      managedPolicies: [
+        iam.ManagedPolicy.fromAwsManagedPolicyName('CloudWatchAgentServerPolicy'),
+      ],
+    });
+
+    // Allow task to read secrets
+    taskRole.addToPolicy(new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
       actions: [
         'secretsmanager:GetSecretValue',
@@ -139,280 +148,94 @@ export class ApplicationStack extends cdk.Stack {
       resources: [`arn:aws:secretsmanager:${context.region}:*:secret:${context.resourceName('db-credentials')}*`],
     }));
 
-    // Allow instance to signal CloudFormation
-    instanceRole.addToPolicy(new iam.PolicyStatement({
+    // Allow task to describe CloudFormation stacks (for cache endpoint)
+    taskRole.addToPolicy(new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
       actions: [
-        'cloudformation:SignalResource',
         'cloudformation:DescribeStacks',
       ],
       resources: [
-        `arn:aws:cloudformation:${context.region}:*:stack/${this.stackName}/*`,
         `arn:aws:cloudformation:${context.region}:*:stack/${context.stackName('foundation')}/*`,
       ],
     }));
 
-    // Allow instance to access deployment bucket
-    instanceRole.addToPolicy(new iam.PolicyStatement({
-      effect: iam.Effect.ALLOW,
-      actions: [
-        's3:GetObject',
-        's3:ListBucket',
-      ],
-      resources: [
-        deploymentBucket.bucketArn,
-        `${deploymentBucket.bucketArn}/*`,
-      ],
-    }));
+    // CloudWatch Log Group
+    const logGroup = new logs.LogGroup(this, 'LogGroup', {
+      logGroupName: context.resourceName('logs'),
+      retention: stageConfig.isProd ? logs.RetentionDays.ONE_MONTH : logs.RetentionDays.ONE_WEEK,
+      removalPolicy: stageConfig.isProd ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
+    });
 
-    // Key Pair for SSH access (beta stage only)
-    let keyName: string | undefined;
-    if (!stageConfig.isProd) {
-      keyName = 'streamr-beta-key'; // Use StreamrP2P-specific key pair
-    }
+    // Fargate Task Definition
+    this.taskDefinition = new ecs.FargateTaskDefinition(this, 'TaskDefinition', {
+      family: context.resourceName('coordinator'),
+      cpu: this.getCpu(stageConfig.instanceSize),
+      memoryLimitMiB: this.getMemory(stageConfig.instanceSize),
+      executionRole: taskExecutionRole,
+      taskRole: taskRole,
+    });
 
-    // User Data Script
-    const userData = ec2.UserData.forLinux();
-
-    // EC2 Instance
-    this.instance = new ec2.Instance(this, 'Instance', {
-      instanceName: context.resourceName('instance'),
-      instanceType: ec2.InstanceType.of(
-        ec2.InstanceClass.T3,
-        this.getInstanceSize(stageConfig.instanceSize)
-      ),
-      machineImage: ec2.MachineImage.latestAmazonLinux2023(),
-      vpc,
-      vpcSubnets: {
-        subnetType: ec2.SubnetType.PUBLIC,
+    // Coordinator Container
+    const coordinatorContainer = this.taskDefinition.addContainer('coordinator', {
+      image: ecs.ContainerImage.fromEcrRepository(ecrRepository, imageTag),
+      containerName: 'coordinator',
+      logging: ecs.LogDriver.awsLogs({
+        streamPrefix: 'coordinator',
+        logGroup: logGroup,
+      }),
+      environment: {
+        'ENVIRONMENT': 'production',
+        'LOG_LEVEL': 'INFO',
+        'WORKERS': '2',
+        'AWS_DEFAULT_REGION': context.region,
+        'DB_SECRET_NAME': context.resourceName('db-credentials'),
+        'FOUNDATION_STACK_NAME': context.stackName('foundation'),
       },
-      securityGroup: this.instanceSecurityGroup,
-      role: instanceRole,
-      userData,
-      keyName,
-      detailedMonitoring: stageConfig.monitoring.detailed,
+      healthCheck: {
+        command: ['CMD-SHELL', 'curl -f http://localhost:8000/health || exit 1'],
+        interval: cdk.Duration.seconds(30),
+        timeout: cdk.Duration.seconds(5),
+        retries: 3,
+        startPeriod: cdk.Duration.seconds(60),
+      },
     });
 
-    // 🎯 STABLE ENDPOINT SOLUTION: Elastic IP for permanent IP address
-    this.elasticIp = new ec2.CfnEIP(this, 'ElasticIP', {
-      domain: 'vpc',
-      tags: [
-        {
-          key: 'Name',
-          value: context.resourceName('elastic-ip'),
-        },
-        {
-          key: 'Project',
-          value: streamrConfig.app.name,
-        },
-        {
-          key: 'Stage',
-          value: context.stage,
-        },
-      ],
+    // Add port mappings for coordinator
+    coordinatorContainer.addPortMappings({
+      containerPort: 8000,
+      protocol: ecs.Protocol.TCP,
+      name: 'coordinator-http',
     });
 
-    // Associate Elastic IP with EC2 Instance
-    new ec2.CfnEIPAssociation(this, 'ElasticIPAssociation', {
-      eip: this.elasticIp.ref,
-      instanceId: this.instance.instanceId,
+    // SRS Container
+    const srsContainer = this.taskDefinition.addContainer('srs', {
+      image: ecs.ContainerImage.fromRegistry('ossrs/srs:5'),
+      containerName: 'srs',
+      logging: ecs.LogDriver.awsLogs({
+        streamPrefix: 'srs',
+        logGroup: logGroup,
+      }),
+      essential: true,
     });
 
-    // Get CloudFormation instance for logical ID and creation policy
-    const cfnInstance = this.instance.node.defaultChild as ec2.CfnInstance;
-
-    // Add user data commands
-    userData.addCommands(
-      '#!/bin/bash -xe',
-      'exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1',
-      'echo "=== StreamrP2P UserData Script Started ==="',
-      'yum update -y',
-      'yum install -y docker git jq',
-      'systemctl start docker',
-      'systemctl enable docker',
-      'usermod -a -G docker ec2-user',
-      '',
-      '# Install Docker Compose',
-      'curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose',
-      'chmod +x /usr/local/bin/docker-compose',
-      '',
-      '# Install AWS CLI v2',
-      'curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"',
-      'unzip awscliv2.zip',
-      './aws/install',
-      '',
-      '# Create application directory',
-      'mkdir -p /opt/streamr-coordinator',
-      'chown ec2-user:ec2-user /opt/streamr-coordinator',
-      '',
-      '# Clone and deploy StreamrP2P application',
-      'cd /opt/streamr-coordinator',
-      'git clone https://github.com/iddv/streamr.git .',
-      'cd coordinator',
-      '',
-      '# Fetch database credentials from AWS Secrets Manager',
-      `SECRET_ARN="arn:aws:secretsmanager:${context.region}:${this.account}:secret:${context.resourceName('db-credentials')}"`,
-      'echo "Fetching database credentials from Secrets Manager..."',
-      'SECRET_JSON=$(aws secretsmanager get-secret-value --secret-id "$SECRET_ARN" --query SecretString --output text)',
-      '',
-      '# Check if secret was fetched successfully',
-      'if [ -z "$SECRET_JSON" ]; then',
-      '    echo "ERROR: Failed to retrieve secret from Secrets Manager. Aborting." >&2',
-      '    exit 1',
-      'fi',
-      '',
-      '# Extract database credentials from secret JSON',
-      'DB_USERNAME=$(echo "$SECRET_JSON" | jq -r .username)',
-      'DB_PASSWORD=$(echo "$SECRET_JSON" | jq -r .password)',
-      'DB_HOST=$(echo "$SECRET_JSON" | jq -r .host)',
-      'DB_PORT=$(echo "$SECRET_JSON" | jq -r .port)',
-      'DB_NAME=$(echo "$SECRET_JSON" | jq -r .dbname)',
-      '',
-      '# Get cache endpoint from CloudFormation',
-      `CACHE_ENDPOINT=$(aws cloudformation describe-stacks --stack-name ${context.stackName('foundation')} --region ${context.region} --query 'Stacks[0].Outputs[?OutputKey==\`CacheEndpoint\`].OutputValue' --output text)`,
-      '',
-      '# Create production environment configuration with real AWS credentials',
-      'cat > .env << ENVEOF',
-      'DATABASE_URL=postgresql://$DB_USERNAME:$DB_PASSWORD@$DB_HOST:$DB_PORT/$DB_NAME',
-      'REDIS_URL=redis://$CACHE_ENDPOINT:6379',
-      'ENVIRONMENT=production', 
-      'LOG_LEVEL=INFO',
-      'WORKERS=2',
-      'ENVEOF',
-      '',
-      '# Create SRS streaming server configuration',
-      'cat > srs.conf << SRSEOF',
-      '# SRS configuration for StreamrP2P',
-      'listen              1935;',
-      'max_connections     1000;',
-      'srs_log_tank        file;',
-      'srs_log_file        ./objs/srs.log;',
-      '',
-      'http_api {',
-      '    enabled         on;',
-      '    listen          8080;',
-      '    crossdomain     on;',
-      '}',
-      '',
-      'http_server {',
-      '    enabled         on;',
-      '    listen          8085;',
-      '    dir             ./objs/nginx/html;',
-      '}',
-      '',
-      'vhost __defaultVhost__ {',
-      '    # FIX: Disable ATC to prevent timestamp drift',
-      '    atc off;',
-      '    ',
-      '    # Enable HLS for web playback',
-      '    hls {',
-      '        enabled         on;',
-      '        hls_path        ./objs/nginx/html;',
-      '        hls_fragment    10;',
-      '        hls_window      60;',
-      '        ',
-      '        # CRITICAL FIXES for A/V sync:',
-      '        hls_wait_keyframe on;    # Wait for keyframes before segmenting',
-      '        hls_gop_cache off;       # Disable GOP cache for accurate timing',
-      '        hls_dts_directly on;     # Use precise DTS timestamps (SRS 5.0+ feature)',
-      '    }',
-      '    ',
-      '    # Enable HTTP-FLV for low-latency',
-      '    http_remux {',
-      '        enabled     on;',
-      '        mount       [vhost]/[app]/[stream].flv;',
-      '    }',
-      '    ',
-      '    # Enable DVR for recording',
-      '    dvr {',
-      '        enabled      off;',
-      '    }',
-      '}',
-      'SRSEOF',
-      '',
-      '# Create production docker-compose configuration',
-      'cat > docker-compose.prod.yml << COMPOSEEOF',
-      'version: "3.8"',
-      'services:',
-      '  coordinator:',
-      '    build: .',
-      '    ports:',
-      '      - "8000:8000"',
-      '    env_file:',
-      '      - .env',
-      '    restart: unless-stopped',
-      '    depends_on:',
-      '      - streamr-srs',
-      '    networks:',
-      '      - streamr-network',
-      '',
-      '  streamr-srs:',
-      '    image: ossrs/srs:5',
-      '    ports:',
-      '      - "1935:1935"',
-      '      - "1985:1985"',
-      '      - "8080:8080"',
-      '    volumes:',
-      '      - "./srs.conf:/usr/local/srs/conf/srs.conf"',
-      '    restart: unless-stopped',
-      '    networks:',
-      '      - streamr-network',
-      '',
-      'networks:',
-      '  streamr-network:',
-      '    driver: bridge',
-      'COMPOSEEOF',
-      '',
-      '# Build and start services with production configuration',
-      'echo "Building and starting StreamrP2P services..."',
-      '/usr/local/bin/docker-compose -f docker-compose.prod.yml up -d --build',
-      '',
-      '# Verify services are running',
-      'echo "Waiting for services to start..."',
-      'sleep 30',
-      'if ! /usr/local/bin/docker-compose -f docker-compose.prod.yml ps | grep -q "Up"; then',
-      '    echo "ERROR: Services failed to start properly" >&2',
-      '    echo "=== Docker Compose Logs ===" >&2',
-      '    /usr/local/bin/docker-compose -f docker-compose.prod.yml logs >&2',
-      '    echo "=== Container Status ===" >&2',
-      '    /usr/local/bin/docker-compose -f docker-compose.prod.yml ps >&2',
-      '    /opt/aws/bin/cfn-signal -e 1 --stack ${this.stackName} --resource ${cfnInstance.logicalId} --region ${context.region}',
-      '    exit 1',
-      'fi',
-      '',
-      '# Test coordinator health',
-      'echo "Testing coordinator health..."',
-      'for i in {1..10}; do',
-      '    if curl -f http://localhost:8000/health >/dev/null 2>&1; then',
-      '        echo "✅ Coordinator health check passed"',
-      '        break',
-      '    fi',
-      '    echo "Attempt $i: Coordinator not ready yet, waiting..."',
-      '    sleep 10',
-      'done',
-      '',
-      '# Install CloudWatch agent',
-      'cd /',
-      'wget https://s3.amazonaws.com/amazoncloudwatch-agent/amazon_linux/amd64/latest/amazon-cloudwatch-agent.rpm',
-      'rpm -U ./amazon-cloudwatch-agent.rpm',
-      '',
-      `# Set environment variables`,
-      `echo "export STAGE=${context.stage}" >> /home/ec2-user/.bashrc`,
-      `echo "export REGION=${context.region}" >> /home/ec2-user/.bashrc`,
-      `echo "export DB_SECRET_ARN=${context.resourceName('db-credentials')}" >> /home/ec2-user/.bashrc`,
-      '',
-      '# Signal completion to CloudFormation',
-      'echo "🎉 StreamrP2P deployment completed successfully!"',
-      `/opt/aws/bin/cfn-signal -e $? --stack ${this.stackName} --resource ${cfnInstance.logicalId} --region ${context.region}`
+    // Add port mappings for SRS
+    srsContainer.addPortMappings(
+      {
+        containerPort: 1935,
+        protocol: ecs.Protocol.TCP,
+        name: 'srs-rtmp',
+      },
+      {
+        containerPort: 8080,
+        protocol: ecs.Protocol.TCP,
+        name: 'srs-http',
+      },
+      {
+        containerPort: 1985,
+        protocol: ecs.Protocol.TCP,
+        name: 'srs-api',
+      }
     );
-
-    // Apply creation policy for CloudFormation signal
-    cfnInstance.cfnOptions.creationPolicy = {
-      resourceSignal: {
-        timeout: 'PT30M', // Increased timeout to 30 minutes
-        count: 1,
-      },
-    };
 
     // Application Load Balancer
     this.loadBalancer = new elbv2.ApplicationLoadBalancer(this, 'LoadBalancer', {
@@ -422,13 +245,27 @@ export class ApplicationStack extends cdk.Stack {
       securityGroup: albSecurityGroup,
     });
 
-    // Target Group for the application
-    const targetGroup = new elbv2.ApplicationTargetGroup(this, 'TargetGroup', {
-      targetGroupName: context.resourceName('tg'),
+    // Fargate Service
+    this.service = new ecs.FargateService(this, 'Service', {
+      serviceName: context.resourceName('coordinator'),
+      cluster: ecsCluster,
+      taskDefinition: this.taskDefinition,
+      desiredCount: 1,
+      securityGroups: [this.serviceSecurityGroup],
+      vpcSubnets: {
+        subnetType: ec2.SubnetType.PUBLIC, // Use public subnets since NAT Gateway is disabled
+      },
+      assignPublicIp: true, // Required for public subnets to pull images from ECR
+      healthCheckGracePeriod: cdk.Duration.minutes(5),
+    });
+
+    // Target Group for the coordinator API
+    const coordinatorTargetGroup = new elbv2.ApplicationTargetGroup(this, 'CoordinatorTargetGroup', {
+      targetGroupName: context.resourceName('coordinator-tg'),
       port: 8000,
       protocol: elbv2.ApplicationProtocol.HTTP,
       vpc,
-      targets: [new elbv2_targets.InstanceTarget(this.instance)],
+      targetType: elbv2.TargetType.IP,
       healthCheck: {
         enabled: true,
         path: '/health',
@@ -441,14 +278,82 @@ export class ApplicationStack extends cdk.Stack {
       },
     });
 
-    // HTTP Listener (use existing approach to avoid conflicts)
+    // Target Group for SRS streaming
+    const srsTargetGroup = new elbv2.ApplicationTargetGroup(this, 'SRSTargetGroup', {
+      targetGroupName: context.resourceName('srs-tg'),
+      port: 8080,
+      protocol: elbv2.ApplicationProtocol.HTTP,
+      vpc,
+      targetType: elbv2.TargetType.IP,
+      healthCheck: {
+        enabled: true,
+        path: '/api/v1/versions',
+        protocol: elbv2.Protocol.HTTP,
+        port: '8080',
+        healthyThresholdCount: 2,
+        unhealthyThresholdCount: 3,
+        timeout: cdk.Duration.seconds(5),
+        interval: cdk.Duration.seconds(30),
+      },
+    });
+
+    // Register service with target groups
+    coordinatorTargetGroup.addTarget(this.service);
+    srsTargetGroup.addTarget(this.service);
+
+    // HTTP Listener for coordinator API (default)
     this.loadBalancer.addListener('HTTPListener', {
       port: 80,
       protocol: elbv2.ApplicationProtocol.HTTP,
-      defaultTargetGroups: [targetGroup],
+      defaultTargetGroups: [coordinatorTargetGroup],
     });
 
-    // Outputs - Stable endpoints with Elastic IP for streaming
+    // HTTP Listener for SRS streaming
+    this.loadBalancer.addListener('SRSListener', {
+      port: 8080,
+      protocol: elbv2.ApplicationProtocol.HTTP,
+      defaultTargetGroups: [srsTargetGroup],
+    });
+
+    // Network Load Balancer for RTMP (ALB doesn't support TCP)
+    const rtmpLoadBalancer = new elbv2.NetworkLoadBalancer(this, 'RTMPLoadBalancer', {
+      loadBalancerName: context.resourceName('rtmp-nlb'),
+      vpc,
+      internetFacing: true,
+    });
+
+    // Target Group for RTMP
+    const rtmpTargetGroup = new elbv2.NetworkTargetGroup(this, 'RTMPTargetGroup', {
+      targetGroupName: context.resourceName('rtmp-tg'),
+      port: 1935,
+      protocol: elbv2.Protocol.TCP,
+      vpc,
+      targetType: elbv2.TargetType.IP,
+      healthCheck: {
+        enabled: true,
+        protocol: elbv2.Protocol.TCP,
+        port: '1935',
+        healthyThresholdCount: 2,
+        unhealthyThresholdCount: 2,
+        timeout: cdk.Duration.seconds(6),
+        interval: cdk.Duration.seconds(30),
+      },
+    });
+
+    // Register service with RTMP target group
+    rtmpTargetGroup.addTarget(this.service.loadBalancerTarget({
+      containerName: 'srs',
+      containerPort: 1935,
+    }));
+
+    // RTMP Listener
+    rtmpLoadBalancer.addListener('RTMPListener', {
+      port: 1935,
+      protocol: elbv2.Protocol.TCP,
+      defaultTargetGroups: [rtmpTargetGroup],
+    });
+
+    // Outputs
     new cdk.CfnOutput(this, 'LoadBalancerDNS', {
       value: this.loadBalancer.loadBalancerDnsName,
       description: 'Application Load Balancer DNS Name (Stable)',
@@ -462,43 +367,65 @@ export class ApplicationStack extends cdk.Stack {
     });
 
     new cdk.CfnOutput(this, 'SRSStreamingEndpoint', {
-      value: `http://${this.elasticIp.ref}:8080/live/{stream}.m3u8`,
-      description: 'SRS Streaming Endpoint (Stable Elastic IP)',
+      value: `http://${this.loadBalancer.loadBalancerDnsName}:8080/live/{stream}.m3u8`,
+      description: 'SRS Streaming Endpoint (via ALB)',
       exportName: context.stackName('srs-endpoint'),
     });
 
     new cdk.CfnOutput(this, 'RTMPEndpoint', {
-      value: `rtmp://${this.elasticIp.ref}:1935/live`,
-      description: 'RTMP Publishing Endpoint (Stable Elastic IP)',
+      value: `rtmp://${rtmpLoadBalancer.loadBalancerDnsName}:1935/live`,
+      description: 'RTMP Publishing Endpoint (via NLB)',
       exportName: context.stackName('rtmp-endpoint'),
     });
 
-    new cdk.CfnOutput(this, 'InstancePublicIP', {
-      value: this.elasticIp.ref,
-      description: 'EC2 Instance Stable Public IP (Elastic IP)',
-      exportName: context.stackName('instance-public-ip'),
+    new cdk.CfnOutput(this, 'ServiceName', {
+      value: this.service.serviceName,
+      description: 'ECS Service Name',
+      exportName: context.stackName('service-name'),
     });
 
-    new cdk.CfnOutput(this, 'InstanceId', {
-      value: this.instance.instanceId,
-      description: 'EC2 Instance ID',
-      exportName: context.stackName('instance-id'),
+    new cdk.CfnOutput(this, 'ClusterName', {
+      value: ecsCluster.clusterName,
+      description: 'ECS Cluster Name',
+      exportName: context.stackName('cluster-name'),
     });
 
-    new cdk.CfnOutput(this, 'StableEndpointSummary', {
-      value: `Dashboard: http://${this.loadBalancer.loadBalancerDnsName}/ | Streaming: http://${this.elasticIp.ref}:8080/live/{stream}.m3u8 | RTMP: rtmp://${this.elasticIp.ref}:1935/live`,
-      description: '🎯 STABLE ENDPOINTS - Dashboard via ALB, Streaming via Elastic IP',
-      exportName: context.stackName('stable-endpoints'),
+    new cdk.CfnOutput(this, 'TaskDefinitionArn', {
+      value: this.taskDefinition.taskDefinitionArn,
+      description: 'ECS Task Definition ARN',
+      exportName: context.stackName('task-definition-arn'),
+    });
+
+    new cdk.CfnOutput(this, 'ECRRepositoryUri', {
+      value: ecrRepository.repositoryUri,
+      description: 'ECR Repository URI',
+      exportName: context.stackName('ecr-repository-uri'),
+    });
+
+    new cdk.CfnOutput(this, 'EndpointSummary', {
+      value: `Dashboard: http://${this.loadBalancer.loadBalancerDnsName}/ | Streaming: http://${this.loadBalancer.loadBalancerDnsName}:8080/live/{stream}.m3u8 | RTMP: rtmp://${rtmpLoadBalancer.loadBalancerDnsName}:1935/live`,
+      description: '🎯 ECS ENDPOINTS - All services via Load Balancers',
+      exportName: context.stackName('ecs-endpoints'),
     });
   }
 
-  private getInstanceSize(size: string): ec2.InstanceSize {
+  private getCpu(size: string): number {
     switch (size) {
-      case 'micro': return ec2.InstanceSize.MICRO;
-      case 'small': return ec2.InstanceSize.SMALL;
-      case 'medium': return ec2.InstanceSize.MEDIUM;
-      case 'large': return ec2.InstanceSize.LARGE;
-      default: return ec2.InstanceSize.MICRO;
+      case 'micro': return 256;  // 0.25 vCPU
+      case 'small': return 512;  // 0.5 vCPU
+      case 'medium': return 1024; // 1 vCPU
+      case 'large': return 2048;  // 2 vCPU
+      default: return 256;
+    }
+  }
+
+  private getMemory(size: string): number {
+    switch (size) {
+      case 'micro': return 512;   // 512 MB
+      case 'small': return 1024;  // 1 GB
+      case 'medium': return 2048; // 2 GB
+      case 'large': return 4096;  // 4 GB
+      default: return 512;
     }
   }
 } 
