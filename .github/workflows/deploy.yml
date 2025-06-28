@@ -104,6 +104,10 @@ jobs:
           echo "🏗️ Deploying foundation stack: $FOUNDATION_STACK_NAME"
           npx cdk deploy "$FOUNDATION_STACK_NAME" --require-approval never --context stage=$STAGE
 
+      # NOTE: Database migrations are handled manually using the secure operational bastion approach
+      # Run: ./scripts/run-migration-fixed.sh beta
+      # This ensures proper security (private subnet access) and reliable execution
+
       - name: Build and push Docker image
         env:
           STAGE: ${{ github.event.inputs.stage || 'beta' }}

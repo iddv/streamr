@@ -5,6 +5,7 @@ import * as elasticache from 'aws-cdk-lib/aws-elasticache';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as ecr from 'aws-cdk-lib/aws-ecr';
 import * as ecs from 'aws-cdk-lib/aws-ecs';
+import * as iam from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
 import { DeploymentContext } from '../config/types';
 import { streamrConfig } from '../config/streamr-config';
@@ -22,6 +23,8 @@ export class FoundationStack extends cdk.Stack {
   public readonly deploymentBucket: s3.Bucket;
   public readonly ecrRepository: ecr.Repository;
   public readonly ecsCluster: ecs.Cluster;
+  public readonly operationalBastionRole: iam.Role;
+  public readonly operationalBastionSecurityGroup: ec2.SecurityGroup;
 
   constructor(scope: Construct, id: string, props: FoundationStackProps) {
     super(scope, id, props);
@@ -198,6 +201,54 @@ export class FoundationStack extends cdk.Stack {
       containerInsightsV2: stageConfig.monitoring.detailed ? ecs.ContainerInsights.ENABLED : ecs.ContainerInsights.DISABLED,
     });
 
+    // IAM Role for Operational Bastion (after database is created)
+    this.operationalBastionRole = new iam.Role(this, 'OperationalBastionRole', {
+      roleName: context.resourceName('operational-bastion-role'),
+      assumedBy: new iam.ServicePrincipal('ec2.amazonaws.com'),
+      description: `Operational bastion role for ${context.stage} stage - allows SSM access and operational tasks`,
+      managedPolicies: [
+        iam.ManagedPolicy.fromAwsManagedPolicyName('AmazonSSMManagedInstanceCore')
+      ],
+      inlinePolicies: {
+        OperationalAccess: new iam.PolicyDocument({
+          statements: [
+            // Database credentials access for migrations and troubleshooting
+            new iam.PolicyStatement({
+              effect: iam.Effect.ALLOW,
+              actions: ['secretsmanager:GetSecretValue'],
+              resources: [this.database.secret!.secretArn],
+              sid: 'DatabaseCredentialsAccess'
+            }),
+            // CloudFormation read access for getting stack outputs
+            new iam.PolicyStatement({
+              effect: iam.Effect.ALLOW,
+              actions: [
+                'cloudformation:DescribeStacks'
+              ],
+              resources: [`arn:aws:cloudformation:${context.region}:${this.account}:stack/${context.stackName('foundation')}/*`],
+              sid: 'CloudFormationReadAccess'
+            })
+          ]
+        })
+      }
+    });
+
+    // Instance Profile for Operational Bastion
+    const operationalBastionInstanceProfile = new iam.CfnInstanceProfile(this, 'OperationalBastionInstanceProfile', {
+      roles: [this.operationalBastionRole.roleName],
+      instanceProfileName: context.resourceName('operational-bastion-instance-profile')
+    });
+
+    // Security Group for Operational Bastion
+    this.operationalBastionSecurityGroup = new ec2.SecurityGroup(this, 'OperationalBastionSecurityGroup', {
+      vpc: this.vpc,
+      securityGroupName: context.resourceName('operational-bastion-sg'),
+      description: `Operational bastion security group for ${context.stage} stage - SSM access only, no ingress rules`,
+      allowAllOutbound: true, // Needs outbound for SSM, database, and package downloads
+    });
+
+    // Note: No ingress rules added = no inbound access except through SSM Session Manager
+
     // Outputs for use by other stacks
     new cdk.CfnOutput(this, 'VpcId', {
       value: this.vpc.vpcId,
@@ -251,6 +302,26 @@ export class FoundationStack extends cdk.Stack {
       value: this.ecsCluster.clusterName,
       description: 'ECS Cluster Name',
       exportName: context.stackName('ecs-cluster-name'),
+    });
+
+    new cdk.CfnOutput(this, 'OperationalBastionInstanceProfileArn', {
+      value: operationalBastionInstanceProfile.attrArn,
+      description: 'Operational Bastion Instance Profile ARN',
+      exportName: context.stackName('operational-bastion-instance-profile'),
+    });
+
+    new cdk.CfnOutput(this, 'OperationalBastionSecurityGroupId', {
+      value: this.operationalBastionSecurityGroup.securityGroupId,
+      description: 'Operational Bastion Security Group ID',
+      exportName: context.stackName('operational-bastion-sg'),
+    });
+
+    new cdk.CfnOutput(this, 'OperationalSubnetId', {
+      value: streamrConfig.networking.enableNatGateway 
+        ? this.vpc.privateSubnets[0].subnetId 
+        : this.vpc.publicSubnets[0].subnetId,
+      description: 'Subnet ID for operational tasks (private if NAT enabled, public if NAT disabled)',
+      exportName: context.stackName('operational-subnet-id'),
     });
   }
 
