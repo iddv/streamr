@@ -28,10 +28,11 @@ powershell -ExecutionPolicy Bypass -File scripts\setup-node.sh
 
 **What this does:**
 - ✅ Connects to live coordinator: `streamr-p2p-beta-alb-1243469977.eu-west-1.elb.amazonaws.com`
-- ✅ Uses real StreamrP2P node client
-- ✅ Tracks earnings and performance
+- ✅ Uses real StreamrP2P node client with lifecycle management
+- ✅ Automatically discovers LIVE streams ready for P2P support
+- ✅ Tracks earnings and performance in real-time
 - ✅ Shows up in dashboard and leaderboard
-- ✅ Automatically joins the `iddv-stream` stream
+- ✅ Supports the `iddv-stream` when it's LIVE
 
 ---
 

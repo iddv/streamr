@@ -87,16 +87,41 @@ else
     exit 1
 fi
 
-# Check if stream exists
-echo -e "${BLUE}🔍 Checking if stream exists...${NC}"
-if curl -s "$COORDINATOR_URL/streams" | grep -q "\"stream_id\":\"$STREAM_ID\""; then
-    echo -e "${GREEN}✅ Stream '$STREAM_ID' found${NC}"
+# Check if stream exists and is live
+echo -e "${BLUE}🔍 Checking if stream is LIVE and ready for support...${NC}"
+if curl -s "$COORDINATOR_URL/streams/live" | grep -q "\"stream_id\":\"$STREAM_ID\""; then
+    echo -e "${GREEN}✅ Stream '$STREAM_ID' is LIVE and ready for P2P support${NC}"
 else
-    echo -e "${YELLOW}⚠️  Stream '$STREAM_ID' not found in coordinator${NC}"
-    echo "Available streams:"
-    curl -s "$COORDINATOR_URL/streams" | grep -o '"stream_id":"[^"]*"' | sed 's/"stream_id":"//g' | sed 's/"//g' | sed 's/^/  - /'
+    echo -e "${YELLOW}⚠️  Stream '$STREAM_ID' not found in LIVE streams${NC}"
+    
+    # Check if it exists but isn't live
+    if curl -s "$COORDINATOR_URL/streams" | grep -q "\"stream_id\":\"$STREAM_ID\""; then
+        STREAM_STATUS=$(curl -s "$COORDINATOR_URL/streams" | grep -A 10 "\"stream_id\":\"$STREAM_ID\"" | grep -o '"status":"[^"]*"' | sed 's/"status":"//g' | sed 's/"//g')
+        echo -e "${YELLOW}Stream exists but status is: $STREAM_STATUS${NC}"
+        
+        case $STREAM_STATUS in
+            "READY")
+                echo "Stream is configured but streamer hasn't started yet"
+                ;;
+            "TESTING")
+                echo "Stream is in testing mode (private)"
+                ;;
+            "OFFLINE")
+                echo "Stream has ended"
+                ;;
+            *)
+                echo "Unknown stream status"
+                ;;
+        esac
+    else
+        echo "Stream not found at all"
+    fi
+    
     echo
-    echo "Continuing anyway (stream might be added later)..."
+    echo "Available LIVE streams:"
+    curl -s "$COORDINATOR_URL/streams/live" | grep -o '"stream_id":"[^"]*"' | sed 's/"stream_id":"//g' | sed 's/"//g' | sed 's/^/  - /' || echo "  (none currently live)"
+    echo
+    echo "Continuing anyway (you can support the stream when it goes live)..."
 fi
 
 # Build the node client if we're in the repo

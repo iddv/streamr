@@ -119,15 +119,44 @@ class NodeClient:
         """Fetch stream information from the coordinator"""
         try:
             async with aiohttp.ClientSession() as session:
+                # First try to find the stream in LIVE streams (preferred for supporters)
+                url = f"{self.coordinator_url}/streams/live"
+                async with session.get(url) as response:
+                    if response.status == 200:
+                        live_streams = await response.json()
+                        
+                        # Find our stream in live streams
+                        for stream in live_streams:
+                            if stream['stream_id'] == self.stream_id:
+                                logger.info(f"Found LIVE stream: {stream['stream_id']}")
+                                return stream
+                        
+                        # If not found in live streams, check all streams
+                        logger.warning(f"Stream {self.stream_id} not found in LIVE streams, checking all streams...")
+                        
+                # Fallback to all streams (includes READY, TESTING, OFFLINE streams)
                 url = f"{self.coordinator_url}/streams"
                 async with session.get(url) as response:
                     if response.status == 200:
-                        streams = await response.json()
+                        all_streams = await response.json()
                         
                         # Find our stream
-                        for stream in streams:
+                        for stream in all_streams:
                             if stream['stream_id'] == self.stream_id:
-                                logger.info(f"Found stream: {stream['stream_id']}")
+                                status = stream.get('status', 'unknown')
+                                logger.warning(f"Found stream {stream['stream_id']} with status: {status}")
+                                
+                                if status == 'LIVE':
+                                    logger.info("Stream is LIVE - ready for P2P support")
+                                elif status == 'READY':
+                                    logger.warning("Stream is READY but not yet LIVE - waiting for streamer to start")
+                                elif status == 'TESTING':
+                                    logger.warning("Stream is in TESTING mode - not yet public")
+                                elif status == 'OFFLINE':
+                                    logger.warning("Stream is OFFLINE - no P2P support needed")
+                                else:
+                                    logger.warning(f"Stream has unknown status: {status}")
+                                
                                 return stream
                         
                         logger.error(f"Stream {self.stream_id} not found in coordinator")
