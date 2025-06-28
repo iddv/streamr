@@ -399,7 +399,7 @@ export class ApplicationStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'ECRRepositoryUri', {
       value: ecrRepository.repositoryUri,
       description: 'ECR Repository URI',
-      exportName: context.stackName('ecr-repository-uri'),
+      // Note: ECR Repository URI is already exported by foundation stack
     });
 
     new cdk.CfnOutput(this, 'EndpointSummary', {
