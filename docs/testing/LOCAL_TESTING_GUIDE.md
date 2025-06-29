@@ -321,7 +321,7 @@ Once local testing is successful:
 // Dashboard showing active node
 {
   "stream_id": "test_stream_001", 
-  "active_nodes": 1,
+  "node_count": 1,
   "nodes": [{"node_id": "local_test_node_7361951c"}]
 }
 

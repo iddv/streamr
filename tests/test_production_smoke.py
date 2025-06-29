@@ -115,6 +115,44 @@ async def test_production_api_performance(production_client: httpx.AsyncClient):
         print("⚠️  /streams/live endpoint not available (Stream Lifecycle System not deployed)")
 
 @pytest.mark.asyncio
+async def test_production_dashboard_endpoint(production_client: httpx.AsyncClient):
+    """Test that dashboard endpoint works and returns expected format."""
+    # Test basic dashboard
+    response = await production_client.get("/dashboard")
+    assert response.status_code == 200
+    dashboard_data = response.json()
+    assert "streams" in dashboard_data
+    streams_list = dashboard_data["streams"]
+    assert isinstance(streams_list, list)
+    print("✅ Dashboard endpoint responding")
+    
+    # Test pagination parameter
+    response = await production_client.get("/dashboard?limit=5")
+    assert response.status_code == 200
+    limited_data = response.json()["streams"]
+    assert isinstance(limited_data, list)
+    assert len(limited_data) <= 5
+    print("✅ Dashboard pagination working")
+    
+    # Test node status filtering 
+    response = await production_client.get("/dashboard?node_statuses=active")
+    assert response.status_code == 200
+    filtered_data = response.json()["streams"]
+    assert isinstance(filtered_data, list)
+    print("✅ Dashboard node filtering working")
+    
+    # Validate response structure if any streams exist
+    if streams_list:
+        stream = streams_list[0]
+        required_fields = ["stream_id", "status", "node_count", "nodes"]
+        for field in required_fields:
+            assert field in stream, f"Missing dashboard field: {field}"
+        
+        # Ensure we're using new field name, not old one
+        assert "active_nodes" not in stream, "Dashboard still using old 'active_nodes' field!"
+        print("✅ Dashboard response schema validation passed")
+
+@pytest.mark.asyncio
 async def test_production_api_schema_validation(production_client: httpx.AsyncClient):
     """Validate that production API returns expected data structures."""
     # Test stream schema

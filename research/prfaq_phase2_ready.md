@@ -39,7 +39,7 @@ The breakthrough validates StreamrP2P's core economic hypothesis:
   "payouts": {
     "test_stream_001": {
       "total_pool": 1000.0,
-      "active_nodes": 1,
+      "node_count": 1,
       "individual_earnings": 1000.0
     }
   }

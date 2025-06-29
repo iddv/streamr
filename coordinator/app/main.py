@@ -167,26 +167,69 @@ async def node_heartbeat(heartbeat: schemas.NodeHeartbeat, db: Session = Depends
     return {"status": "success", "message": "Heartbeat received"}
 
 @app.get("/dashboard")
-async def dashboard(db: Session = Depends(get_db)):
-    """Simple dashboard showing active streams and nodes"""
+async def dashboard(limit: int = 10, node_statuses: str = "active", db: Session = Depends(get_db)):
+    """
+    Dashboard showing streams and nodes with flexible filtering
+    
+    Args:
+        limit (int): Maximum number of streams to return (default: 10)
+        node_statuses (str): Comma-separated node statuses to filter by (e.g., "active,inactive")
+        db: Database session
+    """
     # Updated for Stream Lifecycle System - show operational streams
     operational_statuses = ["READY", "TESTING", "LIVE", "OFFLINE"]
-    streams = db.query(models.Stream).filter(models.Stream.status.in_(operational_statuses)).all()
-    dashboard_data = []
     
+    # Parse and validate node statuses (filter out empty strings)
+    valid_node_statuses = {"active", "inactive", "flagged"}  # Define valid statuses
+    raw_statuses = [s.strip() for s in node_statuses.split(",") if s.strip()]
+    node_status_list = [status for status in raw_statuses if status in valid_node_statuses]
+    
+    # Check for invalid statuses and provide clear error message
+    invalid_statuses = set(raw_statuses) - set(node_status_list)
+    if invalid_statuses:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid node status(es) provided: {', '.join(invalid_statuses)}. Valid statuses are: {', '.join(valid_node_statuses)}"
+        )
+    
+    # Default to "active" only if no statuses were provided at all
+    if not node_status_list:
+        node_status_list = ["active"]
+    
+    # PERFORMANCE FIX: Use only 2 database queries instead of N+1
+    
+    # Query 1: Get streams
+    streams = db.query(models.Stream).filter(
+        models.Stream.status.in_(operational_statuses)
+    ).limit(limit).all()
+    
+    if not streams:
+        return {"streams": []}
+    
+    # Query 2: Get all relevant nodes in a single query
+    stream_ids = [s.stream_id for s in streams]
+    all_nodes = db.query(models.Node).filter(
+        models.Node.stream_id.in_(stream_ids),
+        models.Node.status.in_(node_status_list)
+    ).all()
+    
+    # Map nodes to their stream_id for efficient lookup
+    nodes_by_stream_id = {}
+    for node in all_nodes:
+        nodes_by_stream_id.setdefault(node.stream_id, []).append(node)
+    
+    # Build response without additional queries
+    dashboard_data = []
     for stream in streams:
-        nodes = db.query(models.Node).filter(
-            models.Node.stream_id == stream.stream_id,
-            models.Node.status == "active"
-        ).all()
+        stream_nodes = nodes_by_stream_id.get(stream.stream_id, [])
         
         dashboard_data.append({
             "stream_id": stream.stream_id,
             "sponsor": stream.sponsor_address,
             "token_balance": stream.token_balance,
-            "status": stream.status,  # Include current status
-            "active_nodes": len(nodes),
-            "nodes": [{"node_id": n.node_id, "stats_url": n.stats_url} for n in nodes]
+            "status": stream.status,
+            "node_count": len(stream_nodes),
+            "nodes": [{"node_id": n.node_id, "stats_url": n.stats_url} for n in stream_nodes]
         })
     
     return {"streams": dashboard_data}

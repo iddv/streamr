@@ -124,7 +124,7 @@ class PayoutService:
                         "sponsor": stream.sponsor_address,
                         "total_pool": total_pool,
                         "total_successful_probes": total_successful_probes,
-                        "active_nodes": len(node_stats),
+                        "node_count": len(node_stats),
                         "calculation_period": f"Last {hours_back} hour(s)",
                         "payout_model": "contribution-weighted"
                     },
