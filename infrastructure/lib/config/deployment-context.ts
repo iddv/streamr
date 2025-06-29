@@ -18,7 +18,7 @@ export function createDeploymentContext(stage: string, region: string): Deployme
     region,
     stageConfig,
     regionConfig,
-    stackName: (suffix: string) => `${streamrConfig.app.name}-${stage}-${regionConfig.name}-${suffix}`,
+    stackName: (suffix: string) => `${streamrConfig.app.name}-${stage}-${region}-${suffix}`,
     resourceName: (name: string) => `${streamrConfig.app.name}-${stage}-${name}`,
   };
 }
