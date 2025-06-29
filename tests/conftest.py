@@ -58,9 +58,19 @@ async def coordinator_client() -> AsyncGenerator[httpx.AsyncClient, None]:
 
 # Alias for backward compatibility with existing tests
 @pytest_asyncio.fixture
-async def production_client(coordinator_client: httpx.AsyncClient) -> httpx.AsyncClient:
+async def production_client() -> AsyncGenerator[httpx.AsyncClient, None]:
     """Alias for coordinator_client for backward compatibility."""
-    return coordinator_client
+    url = get_coordinator_url()
+    timeout = httpx.Timeout(10.0, connect=5.0)
+    
+    print(f"🎯 Testing against: {url}")
+    
+    async with httpx.AsyncClient(
+        base_url=url,
+        timeout=timeout,
+        headers={"Content-Type": "application/json"}
+    ) as client:
+        yield client
 
 @pytest.fixture
 def test_stream_data():
@@ -73,7 +83,7 @@ def test_stream_data():
     }
 
 @pytest_asyncio.fixture
-async def cleanup_test_streams(coordinator_client: httpx.AsyncClient):
+async def cleanup_test_streams():
     """Cleanup fixture to remove test streams after tests."""
     created_streams = []
     
@@ -82,9 +92,17 @@ async def cleanup_test_streams(coordinator_client: httpx.AsyncClient):
     
     yield track_stream
     
-    # Cleanup after test
-    for stream_id in created_streams:
-        try:
-            await coordinator_client.delete(f"/streams/{stream_id}")
-        except:
-            pass  # Ignore cleanup failures 
+    # Cleanup after test - create our own client for cleanup
+    url = get_coordinator_url()
+    timeout = httpx.Timeout(10.0, connect=5.0)
+    
+    async with httpx.AsyncClient(
+        base_url=url,
+        timeout=timeout,
+        headers={"Content-Type": "application/json"}
+    ) as client:
+        for stream_id in created_streams:
+            try:
+                await client.delete(f"/streams/{stream_id}")
+            except:
+                pass  # Ignore cleanup failures 
