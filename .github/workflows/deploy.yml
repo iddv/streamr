@@ -6,12 +6,14 @@ on:
     paths:
       - 'infrastructure/**'
       - 'coordinator/**'
+      - 'tests/**'
       - '.github/workflows/deploy.yml'
   pull_request:
     branches: [ main ]
     paths:
       - 'infrastructure/**'
       - 'coordinator/**'
+      - 'tests/**'
   workflow_dispatch:
     inputs:
       stage:
