@@ -43,7 +43,7 @@ async def register_stream(stream: schemas.StreamCreate, db: Session = Depends(ge
         sponsor_address=stream.sponsor_address,
         token_balance=stream.token_balance,
         rtmp_url=stream.rtmp_url,
-        status="active"
+        status="READY"  # Updated for Stream Lifecycle System
     )
     db.add(db_stream)
     db.commit()
@@ -169,7 +169,9 @@ async def node_heartbeat(heartbeat: schemas.NodeHeartbeat, db: Session = Depends
 @app.get("/dashboard")
 async def dashboard(db: Session = Depends(get_db)):
     """Simple dashboard showing active streams and nodes"""
-    streams = db.query(models.Stream).filter(models.Stream.status == "active").all()
+    # Updated for Stream Lifecycle System - show operational streams
+    operational_statuses = ["READY", "TESTING", "LIVE", "OFFLINE"]
+    streams = db.query(models.Stream).filter(models.Stream.status.in_(operational_statuses)).all()
     dashboard_data = []
     
     for stream in streams:
@@ -182,6 +184,7 @@ async def dashboard(db: Session = Depends(get_db)):
             "stream_id": stream.stream_id,
             "sponsor": stream.sponsor_address,
             "token_balance": stream.token_balance,
+            "status": stream.status,  # Include current status
             "active_nodes": len(nodes),
             "nodes": [{"node_id": n.node_id, "stats_url": n.stats_url} for n in nodes]
         })

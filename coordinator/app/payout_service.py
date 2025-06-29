@@ -36,9 +36,10 @@ class PayoutService:
         try:
             cutoff_time = datetime.utcnow() - timedelta(hours=hours_back)
             
-            # Get all active streams
+            # Get all operational streams (updated for Stream Lifecycle System)
+            operational_statuses = ["READY", "TESTING", "LIVE", "OFFLINE"]
             active_streams = db.query(models.Stream).filter(
-                models.Stream.status == "active"
+                models.Stream.status.in_(operational_statuses)
             ).all()
             
             payout_data = {}
