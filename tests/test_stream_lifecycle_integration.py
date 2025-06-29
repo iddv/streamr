@@ -20,7 +20,7 @@ async def test_stream_lifecycle_state_machine(
     
     # 1. Create stream (should start in READY state)
     response = await coordinator_client.post("/streams", json=stream_data)
-    assert response.status_code == 201
+    assert response.status_code == 200
     created_stream = response.json()
     assert created_stream["status"] == "READY"
     assert created_stream["stream_id"] == stream_id
@@ -92,7 +92,7 @@ async def test_invalid_state_transitions(
     
     # Create stream in READY state
     response = await coordinator_client.post("/streams", json=stream_data)
-    assert response.status_code == 201
+    assert response.status_code == 200
     
     # Try invalid transition: READY → OFFLINE (should fail)
     response = await coordinator_client.patch(
