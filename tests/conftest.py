@@ -58,10 +58,9 @@ async def coordinator_client() -> AsyncGenerator[httpx.AsyncClient, None]:
 
 # Alias for backward compatibility with existing tests
 @pytest_asyncio.fixture
-async def production_client() -> AsyncGenerator[httpx.AsyncClient, None]:
+async def production_client(coordinator_client: httpx.AsyncClient) -> httpx.AsyncClient:
     """Alias for coordinator_client for backward compatibility."""
-    async for client in coordinator_client():
-        yield client
+    return coordinator_client
 
 @pytest.fixture
 def test_stream_data():
