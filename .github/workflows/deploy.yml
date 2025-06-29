@@ -88,7 +88,7 @@ jobs:
         working-directory: infrastructure
         run: |
           STAGE=${{ github.event.inputs.stage || 'beta' }}
-          OIDC_STACK_NAME="streamr-p2p-$STAGE-ireland-github-oidc"
+          OIDC_STACK_NAME="streamr-p2p-$STAGE-${{ env.AWS_REGION }}-github-oidc"
           echo "🔐 Deploying GitHub OIDC stack: $OIDC_STACK_NAME"
           npx cdk deploy "$OIDC_STACK_NAME" --require-approval never --context stage=$STAGE
 
@@ -100,7 +100,7 @@ jobs:
         working-directory: infrastructure
         run: |
           STAGE=${{ github.event.inputs.stage || 'beta' }}
-          FOUNDATION_STACK_NAME="streamr-p2p-$STAGE-ireland-foundation"
+          FOUNDATION_STACK_NAME="streamr-p2p-$STAGE-${{ env.AWS_REGION }}-foundation"
           echo "🏗️ Deploying foundation stack: $FOUNDATION_STACK_NAME"
           npx cdk deploy "$FOUNDATION_STACK_NAME" --require-approval never --context stage=$STAGE
 
@@ -114,7 +114,7 @@ jobs:
           IMAGE_TAG: ${{ github.sha }}
         run: |
           # Get ECR repository URI from the foundation stack
-          FOUNDATION_STACK_NAME="streamr-p2p-$STAGE-ireland-foundation"
+          FOUNDATION_STACK_NAME="streamr-p2p-$STAGE-${{ env.AWS_REGION }}-foundation"
           ECR_REPOSITORY_URI=$(aws cloudformation describe-stacks \
             --stack-name "$FOUNDATION_STACK_NAME" \
             --query 'Stacks[0].Outputs[?OutputKey==`ECRRepositoryUri`].OutputValue' \
@@ -145,7 +145,7 @@ jobs:
           IMAGE_TAG: ${{ github.sha }}
         run: |
           STAGE=${{ github.event.inputs.stage || 'beta' }}
-          APPLICATION_STACK_NAME="streamr-p2p-$STAGE-ireland-application"
+          APPLICATION_STACK_NAME="streamr-p2p-$STAGE-${{ env.AWS_REGION }}-application"
           echo "🚀 Deploying application stack: $APPLICATION_STACK_NAME"
           echo "🏷️ Using image tag: $IMAGE_TAG"
           npx cdk deploy "$APPLICATION_STACK_NAME" --require-approval never --context stage=$STAGE --context imageTag=$IMAGE_TAG
@@ -154,7 +154,7 @@ jobs:
         working-directory: infrastructure
         run: |
           STAGE=${{ github.event.inputs.stage || 'beta' }}
-          APPLICATION_STACK_NAME="streamr-p2p-$STAGE-ireland-application"
+          APPLICATION_STACK_NAME="streamr-p2p-$STAGE-${{ env.AWS_REGION }}-application"
           echo "📊 Deployment completed for stage: $STAGE"
           
           # Get ALB DNS name
@@ -208,7 +208,7 @@ jobs:
         working-directory: infrastructure
         run: |
           STAGE=${{ github.event.inputs.stage || 'beta' }}
-          APPLICATION_STACK_NAME="streamr-p2p-$STAGE-ireland-application"
+          APPLICATION_STACK_NAME="streamr-p2p-$STAGE-${{ env.AWS_REGION }}-application"
           echo "🧪 Running sanity tests for stage: $STAGE"
           echo "📋 Stack name: $APPLICATION_STACK_NAME"
           
@@ -258,7 +258,7 @@ jobs:
       - name: Run Stream Lifecycle Integration Tests
         run: |
           STAGE=${{ github.event.inputs.stage || 'beta' }}
-          APPLICATION_STACK_NAME="streamr-p2p-$STAGE-ireland-application"
+          APPLICATION_STACK_NAME="streamr-p2p-$STAGE-${{ env.AWS_REGION }}-application"
           
           # Get ALB DNS name for coordinator URL
           ALB_DNS=$(aws cloudformation describe-stacks \
