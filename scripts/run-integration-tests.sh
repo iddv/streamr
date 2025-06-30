@@ -31,7 +31,7 @@ get_coordinator_url() {
             echo "http://localhost:8000"
             ;;
         "production"|"prod"|"beta")
-            echo "http://streamr-p2p-beta-alb-1243469977.eu-west-1.elb.amazonaws.com"
+            echo "http://streamr-p2p-beta-alb-1130353833.eu-west-1.elb.amazonaws.com"
             ;;
         http*)
             echo "$target"  # Direct URL
