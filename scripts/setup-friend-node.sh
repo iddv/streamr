@@ -4,7 +4,7 @@
 # Usage: ./setup-friend-node.sh YOUR_STREAM_KEY
 
 STREAM_KEY="$1"
-COORDINATOR_URL="http://streamr-p2p-beta-alb-1243469977.eu-west-1.elb.amazonaws.com"
+COORDINATOR_URL="http://streamr-p2p-beta-alb-1130353833.eu-west-1.elb.amazonaws.com"
 SRS_RTMP_URL="rtmp://108.129.47.155:1935/live"
 SRS_HLS_URL="http://108.129.47.155:8080/live"
 

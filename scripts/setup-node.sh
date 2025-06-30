@@ -12,7 +12,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Configuration
-DEFAULT_COORDINATOR_URL="http://streamr-p2p-beta-alb-1243469977.eu-west-1.elb.amazonaws.com"
+DEFAULT_COORDINATOR_URL="http://streamr-p2p-beta-alb-1130353833.eu-west-1.elb.amazonaws.com"
 DEFAULT_STREAM_ID="iddv-stream"
 DEFAULT_NODE_ID="node_$(whoami)_$(date +%s)"
 

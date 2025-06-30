@@ -28,7 +28,7 @@ if (-not $StreamKey) {
     }
 }
 
-$CoordinatorUrl = "http://streamr-p2p-beta-alb-1243469977.eu-west-1.elb.amazonaws.com"
+$CoordinatorUrl = "http://streamr-p2p-beta-alb-1130353833.eu-west-1.elb.amazonaws.com"
 $SrsRtmpUrl = "rtmp://108.129.47.155:1935/live"
 $SrsHlsUrl = "http://108.129.47.155:8080/live"
 $NodeId = "friend_$env:USERNAME_$(Get-Date -UFormat %s)"

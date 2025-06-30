@@ -27,7 +27,7 @@ powershell -ExecutionPolicy Bypass -File scripts\setup-node.sh
 ```
 
 **What this does:**
-- ✅ Connects to live coordinator: `streamr-p2p-beta-alb-1243469977.eu-west-1.elb.amazonaws.com`
+- ✅ Connects to live coordinator: `streamr-p2p-beta-alb-1130353833.eu-west-1.elb.amazonaws.com`
 - ✅ Uses real StreamrP2P node client with lifecycle management
 - ✅ Automatically discovers LIVE streams ready for P2P support
 - ✅ Tracks earnings and performance in real-time
@@ -60,17 +60,17 @@ After running either script, they can check:
 
 ```bash
 # See their node in the dashboard
-curl http://streamr-p2p-beta-alb-1243469977.eu-west-1.elb.amazonaws.com/dashboard
+curl http://streamr-p2p-beta-alb-1130353833.eu-west-1.elb.amazonaws.com/dashboard
 
 # Check their earnings
-curl http://streamr-p2p-beta-alb-1243469977.eu-west-1.elb.amazonaws.com/nodes/[NODE_ID]/earnings
+curl http://streamr-p2p-beta-alb-1130353833.eu-west-1.elb.amazonaws.com/nodes/[NODE_ID]/earnings
 
 # View the leaderboard
-curl http://streamr-p2p-beta-alb-1243469977.eu-west-1.elb.amazonaws.com/leaderboard
+curl http://streamr-p2p-beta-alb-1130353833.eu-west-1.elb.amazonaws.com/leaderboard
 ```
 
 **Or visit the web dashboard:**
-http://streamr-p2p-beta-alb-1243469977.eu-west-1.elb.amazonaws.com/dashboard
+http://streamr-p2p-beta-alb-1130353833.eu-west-1.elb.amazonaws.com/dashboard
 
 ---
 
