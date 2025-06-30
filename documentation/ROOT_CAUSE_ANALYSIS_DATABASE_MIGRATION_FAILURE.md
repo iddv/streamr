@@ -166,24 +166,69 @@ Existing RDS → Database with Old Schema → Migration Attempt → Multiple Fai
 
 ## **🛠️ Failed Attempts and Why They Didn't Work**
 
-### **Attempt 1: Manual Migration via SSM**
+### **Database Migration Attempts**
+
+#### **Attempt 1: Manual Migration via SSM**
 - **What we tried**: Connect to RDS via Systems Manager Session Manager
 - **Why it failed**: Likely network/permissions issues, hard to debug in production
 
-### **Attempt 2: ECS Task Override for Migration**
+#### **Attempt 2: ECS Task Override for Migration**
 - **What we tried**: Run migration SQL via one-off ECS task
 - **Why it failed initially**: 
   - SQL file not included in Docker image
   - Wrong file paths in container
   - SQLAlchemy syntax issues (`engine.execute()` deprecated)
 
-### **Attempt 3: Direct SQL Execution via ECS**
+#### **Attempt 3: Direct SQL Execution via ECS**
 - **What we tried**: Embed SQL commands directly in ECS task override
 - **Result**: Migration appeared to succeed, but application still failed
 - **Why it ultimately didn't work**: Service was still running old Docker image with old schema expectations
 
-### **The Breakthrough Realization**:
+#### **The Database Breakthrough**: 
 Even after successful migration, the **running application containers** needed to be restarted to pick up the schema changes. However, there may have been additional issues with image versioning or caching.
+
+### **Test Framework Debugging Saga**
+
+#### **Attempt 1: First Pytest Fixture Fix**
+- **What we tried**: Fixed `production_client` fixture to use dependency injection
+- **Why it partially worked**: Stopped one "called directly" error
+- **Why it wasn't enough**: `coordinator_client` still had the same pattern issue
+
+#### **Attempt 2: Workflow Trigger Issues**  
+- **What we tried**: Pushed test fixes and expected GitHub Actions to run
+- **Why it failed**: Path filters excluded `tests/**` from triggering workflows
+- **Root cause**: Overly restrictive workflow triggers
+
+#### **Attempt 3: Stack Naming Confusion**
+- **What we tried**: Updated CDK code but workflow still used old naming
+- **Why it failed**: Workflow file changes weren't committed
+- **Resolution**: Fixed naming consistency and updated workflow triggers
+
+#### **The Testing Breakthrough**:
+Multiple layers of issues needed resolution - async fixture patterns, workflow configuration, AND test expectations vs actual API behavior.
+
+---
+
+## **🎯 Additional Root Causes Discovered**
+
+### **🟡 Testing Infrastructure Inadequacy**
+
+**The Problem**: Test framework had multiple layers of issues that masked the database fix success.
+
+**Manifestation**:
+- Async pytest fixtures calling each other directly
+- Workflow path filters too restrictive 
+- Test expectations mismatched API behavior
+- No early validation of test framework health
+
+### **🟡 Cascading Issue Complexity**
+
+**The Problem**: Fixing the database migration revealed additional unrelated issues in the development pipeline.
+
+**Manifestation**:
+- Success of primary fix (database) hidden by secondary issues (tests)
+- Multiple debugging sessions required for full system validation
+- Each fix revealed the next layer of problems
 
 ---
 
@@ -225,6 +270,23 @@ Even after successful migration, the **running application containers** needed t
    - What manual steps are required?
    - What could fail and why?
    - How to validate success?
+
+### **🎯 For Test Framework Management**:
+
+1. **Validate test framework health early**
+   - Run tests against known working endpoints first
+   - Don't assume test failures indicate application issues
+   - Separate test framework debugging from application debugging
+
+2. **Design robust async fixture patterns**
+   - Use proper dependency injection, not direct fixture calls
+   - Each fixture should manage its own lifecycle
+   - Test fixture patterns in isolation before integration
+
+3. **Maintain workflow trigger hygiene**
+   - Include test paths in CI/CD triggers
+   - Document what changes trigger which workflows
+   - Test workflow triggers with dummy commits
 
 ---
 
@@ -280,6 +342,9 @@ Even after successful migration, the **running application containers** needed t
 - **Validate assumptions** - don't assume ORMs handle schema evolution
 - **Have a rollback plan** for every schema change
 - **Monitor application health** after deployments
+- **Validate test framework independently** - ensure tests can pass against known good systems
+- **Layer debugging systematically** - fix database issues before test framework issues
+- **Document the full journey** - cascading issues teach more than single problems
 
 ### **🎯 Architecture Principles**:
 1. **Fail fast, fail safe** - catch issues in CI, not production
@@ -289,8 +354,9 @@ Even after successful migration, the **running application containers** needed t
 
 ---
 
-## **📊 Timeline of Resolution**
+## **📊 Timeline of Resolution: The FULL Epic Journey**
 
+### **Phase 1: Database Migration Crisis**
 1. **Initial Problem**: `/dashboard` returning 500 errors
 2. **Debug Phase**: Identified missing database columns
 3. **Manual Attempts**: Multiple failed migration attempts
@@ -298,19 +364,68 @@ Even after successful migration, the **running application containers** needed t
 5. **Strategic Decision**: Choose "nuclear option" over continued debugging
 6. **Infrastructure Cleanup**: Destroyed existing stacks
 7. **Fresh Deployment**: Clean infrastructure with correct schema
-8. **Validation**: Confirmed working endpoints and tests
-9. **Documentation**: This root cause analysis
+8. **Initial Validation**: Endpoints working! 🎉
 
-**Total Resolution Time**: ~2-3 hours of active debugging + fresh deployment time
+### **Phase 2: The Test Framework Odyssey** *(The plot thickens...)*
+9. **Test Trigger Issues**: GitHub Actions not running due to path filters
+10. **Stack Naming Cleanup**: Refactored "ireland" → "eu-west-1" 
+11. **First Test Failures**: "Fixture called directly" errors
+12. **Pytest Deep Dive**: Fixed `production_client` fixture dependency injection
+13. **More Test Failures**: Still getting fixture errors!
+14. **Second Pytest Fix**: Fixed `coordinator_client` async generator pattern
+15. **Different Test Failures**: HTTP 201 vs 200 status code expectations
+16. **API Analysis**: Discovered tests had wrong expectations (API correctly returns 200)
+17. **Final Test Fix**: Updated integration test status code assertions
 
-**Key Success Factor**: Recognizing when to stop debugging and start rebuilding
+### **Phase 3: Victory** 🎊
+18. **Full Test Suite**: ALL 11 integration tests PASSING
+19. **Complete System Validation**: End-to-end functionality confirmed
+20. **Documentation**: This comprehensive root cause analysis
+
+**Total Resolution Time**: ~4-5 hours across multiple debugging sessions
+
+**Key Success Factors**: 
+- Recognizing when to rebuild vs debug
+- Systematic testing and validation
+- Deep understanding of async fixtures and test frameworks
+- Persistence through cascading issues
 
 ---
 
 ## **🔍 Conclusion**
 
-This incident highlights the critical importance of proper database schema management in production systems. While the "nuclear option" of rebuilding infrastructure solved the immediate problem, the real value comes from understanding why the issue occurred and implementing prevention strategies.
+This incident evolved from a database migration failure into a comprehensive lesson about **cascading system issues** and the complexity of modern development pipelines.
 
-**The core lesson**: Database schema changes are not "development details" - they are critical production operations that require the same rigor as any other infrastructure change.
+### **The Multi-Layer Reality**
 
-**For teams facing similar issues**: Don't be afraid to rebuild when debugging costs exceed rebuilding costs, especially in non-production environments. Sometimes the fastest path to resolution is a fresh start. 
+What started as a database schema problem revealed:
+1. **Database Management Issues** - SQLAlchemy misconceptions and migration pipeline gaps
+2. **Test Framework Issues** - Async fixture patterns and workflow configuration problems  
+3. **Development Process Issues** - Path filters, naming conventions, and validation gaps
+4. **Integration Complexity** - How fixing one layer reveals problems in the next
+
+### **The Epic Journey Value**
+
+The **4-5 hour debugging marathon** taught more than a simple fix would have:
+- How to systematically debug cascading failures
+- The importance of testing the test framework itself
+- How modern development pipelines can mask and amplify issues
+- The value of persistence through multiple problem layers
+
+### **Core Lessons**
+
+1. **Database schema changes are critical infrastructure operations** - require automated, tested, validated pipelines
+2. **Test framework health is as important as application health** - validate independently
+3. **Cascading issues are normal in complex systems** - fix systematically, layer by layer
+4. **Sometimes rebuilding beats debugging** - but document the journey for institutional knowledge
+5. **Epic debugging sessions become epic learning opportunities** - when properly documented
+
+### **For Future Teams**
+
+**Facing similar database issues?** Start with our Phase 1 approach - consider the "nuclear option" early.
+
+**Facing mysterious test failures?** Remember Phase 2 - validate your test framework against known working endpoints first.
+
+**Feeling overwhelmed by cascading issues?** Take inspiration from this journey - persistence through systematic debugging pays off.
+
+**The ultimate lesson**: From "fucking mess" to "HOLY MOLEY tests passed!" - complex problems yield to systematic, persistent debugging. 🎉 

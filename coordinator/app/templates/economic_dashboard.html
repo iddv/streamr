@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamrP2P Economic Validation Dashboard</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 2.5em;
+        }
+        .header p {
+            margin: 10px 0 0 0;
+            opacity: 0.9;
+        }
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .metric-card {
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            border-left: 5px solid #667eea;
+        }
+        .metric-card.success {
+            border-left-color: #10b981;
+            background: linear-gradient(135deg, #ecfdf5 0%, #f0fdf4 100%);
+        }
+        .metric-card.warning {
+            border-left-color: #f59e0b;
+            background: linear-gradient(135deg, #fffbeb 0%, #fefce8 100%);
+        }
+        .metric-card.danger {
+            border-left-color: #ef4444;
+            background: linear-gradient(135deg, #fef2f2 0%, #fefefe 100%);
+        }
+        .metric-card h3 {
+            margin: 0 0 10px 0;
+            color: #374151;
+            font-size: 1.1em;
+        }
+        .metric-card .value {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #111827;
+            margin: 10px 0;
+        }
+        .metric-card .target {
+            font-size: 0.9em;
+            color: #6b7280;
+        }
+        .section {
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .section h2 {
+            margin-top: 0;
+            color: #374151;
+            border-bottom: 2px solid #e5e7eb;
+            padding-bottom: 10px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        th {
+            background-color: #f9fafb;
+            font-weight: 600;
+            color: #374151;
+        }
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 500;
+        }
+        .status-good {
+            background-color: #d1fae5;
+            color: #065f46;
+        }
+        .status-warning {
+            background-color: #fef3c7;
+            color: #92400e;
+        }
+        .status-danger {
+            background-color: #fee2e2;
+            color: #991b1b;
+        }
+        .checklist {
+            list-style: none;
+            padding: 0;
+        }
+        .checklist li {
+            padding: 10px 0;
+            border-bottom: 1px solid #e5e7eb;
+            font-size: 1.1em;
+        }
+        .checklist li:last-child {
+            border-bottom: none;
+        }
+        .checklist .icon {
+            margin-right: 10px;
+            font-size: 1.2em;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #6b7280;
+        }
+        .refresh-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1em;
+            margin-bottom: 20px;
+        }
+        .refresh-btn:hover {
+            background: #5a67d8;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>StreamrP2P Economic Validation</h1>
+        <p>Phase 1: Proving P2P Economics Before Building Friend UI</p>
+    </div>
+
+    <button class="refresh-btn" onclick="loadDashboard()">🔄 Refresh Data</button>
+
+    <!-- Key Metrics -->
+    <div class="metrics-grid" id="metrics-grid">
+        <div class="loading">Loading economic data...</div>
+    </div>
+
+    <!-- Top Earners Table -->
+    <div class="section">
+        <h2>🏆 Top Earning Nodes (Last 30 Days)</h2>
+        <div id="top-earners">
+            <div class="loading">Loading earners data...</div>
+        </div>
+    </div>
+
+    <!-- Economic Validation Checklist -->
+    <div class="section">
+        <h2>✅ Economic Validation Checklist</h2>
+        <ul class="checklist" id="validation-checklist">
+            <li><div class="loading">Loading validation criteria...</div></li>
+        </ul>
+    </div>
+
+    <!-- Real-time Stats -->
+    <div class="section">
+        <h2>📊 System Status</h2>
+        <div id="system-status">
+            <div class="loading">Loading system status...</div>
+        </div>
+    </div>
+
+    <script>
+        async function loadDashboard() {
+            try {
+                // Load economic dashboard data
+                const response = await fetch('/api/v1/economics/dashboard');
+                const data = await response.json();
+                
+                // Update metrics grid
+                updateMetricsGrid(data);
+                
+                // Update top earners
+                updateTopEarners(data.top_earners);
+                
+                // Update validation checklist
+                updateValidationChecklist(data);
+                
+                // Update system status
+                updateSystemStatus(data);
+                
+            } catch (error) {
+                console.error('Error loading dashboard:', error);
+                document.getElementById('metrics-grid').innerHTML = 
+                    '<div style="color: red; text-align: center;">Error loading data. Please refresh.</div>';
+            }
+        }
+
+        function updateMetricsGrid(data) {
+            const platformMarginClass = data.platform_margin_percent >= 5 ? 'success' : 'danger';
+            const creatorShareClass = data.avg_creator_revenue_share >= 85 ? 'success' : 'danger';
+            const qualifiedEarnersClass = data.qualified_earners_count >= 5 ? 'success' : 'warning';
+            
+            document.getElementById('metrics-grid').innerHTML = `
+                <div class="metric-card ${platformMarginClass}">
+                    <h3>Platform Margin</h3>
+                    <div class="value">${data.platform_margin_percent}%</div>
+                    <div class="target">Target: >5%</div>
+                </div>
+                
+                <div class="metric-card ${creatorShareClass}">
+                    <h3>Creator Revenue Share</h3>
+                    <div class="value">${data.avg_creator_revenue_share}%</div>
+                    <div class="target">Target: >85%</div>
+                </div>
+                
+                <div class="metric-card ${qualifiedEarnersClass}">
+                    <h3>Friends Earning $50-200/month</h3>
+                    <div class="value">${data.qualified_earners_count}/5</div>
+                    <div class="target">Target: 5+ nodes</div>
+                </div>
+                
+                <div class="metric-card">
+                    <h3>Data Delivered (24h)</h3>
+                    <div class="value">${data.total_gb_delivered_24h} GB</div>
+                    <div class="target">Via P2P Network</div>
+                </div>
+            `;
+        }
+
+        function updateTopEarners(earners) {
+            if (!earners || earners.length === 0) {
+                document.getElementById('top-earners').innerHTML = 
+                    '<p style="text-align: center; color: #6b7280;">No earnings data available yet.</p>';
+                return;
+            }
+
+            let tableHTML = `
+                <table>
+                    <tr>
+                        <th>Node ID</th>
+                        <th>Earnings (USD)</th>
+                        <th>GB Relayed</th>
+                        <th>Trust Score</th>
+                        <th>Status</th>
+                    </tr>
+            `;
+            
+            earners.forEach(node => {
+                const statusClass = node.trust_score >= 0.8 ? 'status-good' : 'status-warning';
+                const statusText = node.trust_score >= 0.8 ? 'Good' : 'Suspicious';
+                
+                tableHTML += `
+                    <tr>
+                        <td>${node.node_id}</td>
+                        <td>$${node.earnings.toFixed(2)}</td>
+                        <td>${node.gb_relayed.toFixed(2)}</td>
+                        <td>${node.trust_score.toFixed(2)}</td>
+                        <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+                    </tr>
+                `;
+            });
+            
+            tableHTML += '</table>';
+            document.getElementById('top-earners').innerHTML = tableHTML;
+        }
+
+        function updateValidationChecklist(data) {
+            const qualifiedEarners = data.qualified_earners_count >= 5;
+            const platformMargin = data.platform_margin_percent >= 5;
+            const creatorShare = data.avg_creator_revenue_share >= 85;
+            const trustScore = true; // Placeholder - would calculate from actual data
+            const cdnFallback = true; // Placeholder - would calculate from actual data
+            
+            document.getElementById('validation-checklist').innerHTML = `
+                <li>
+                    <span class="icon">${qualifiedEarners ? '✅' : '❌'}</span>
+                    5+ friends earning $50-200/month: <strong>${qualifiedEarners ? 'PASS' : 'FAIL'}</strong>
+                </li>
+                <li>
+                    <span class="icon">${platformMargin ? '✅' : '❌'}</span>
+                    Platform margin >5%: <strong>${platformMargin ? 'PASS' : 'FAIL'}</strong>
+                </li>
+                <li>
+                    <span class="icon">${creatorShare ? '✅' : '❌'}</span>
+                    Creator revenue share >85%: <strong>${creatorShare ? 'PASS' : 'FAIL'}</strong>
+                </li>
+                <li>
+                    <span class="icon">⏳</span>
+                    Trust score >95% accuracy: <strong>PENDING</strong>
+                </li>
+                <li>
+                    <span class="icon">⏳</span>
+                    CDN fallback <10%: <strong>PENDING</strong>
+                </li>
+            `;
+        }
+
+        function updateSystemStatus(data) {
+            document.getElementById('system-status').innerHTML = `
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
+                    <div>
+                        <h4>Active Sessions</h4>
+                        <p style="font-size: 1.5em; margin: 5px 0;">${data.active_sessions}</p>
+                    </div>
+                    <div>
+                        <h4>Total Nodes</h4>
+                        <p style="font-size: 1.5em; margin: 5px 0;">${data.total_nodes}</p>
+                    </div>
+                    <div>
+                        <h4>Suspicious Reports</h4>
+                        <p style="font-size: 1.5em; margin: 5px 0;">${data.suspicious_activity.length}</p>
+                    </div>
+                    <div>
+                        <h4>Last Updated</h4>
+                        <p style="font-size: 1.5em; margin: 5px 0;">${new Date().toLocaleTimeString()}</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Load dashboard on page load
+        loadDashboard();
+        
+        // Auto-refresh every 30 seconds
+        setInterval(loadDashboard, 30000);
+    </script>
+</body>
+</html> 
