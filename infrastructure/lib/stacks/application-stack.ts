@@ -323,8 +323,9 @@ export class ApplicationStack extends cdk.Stack {
     // For production, allocate one EIP per AZ for high availability
     const primaryPublicSubnet = vpc.publicSubnets[0];
     
-    const rtmpLoadBalancer = new elbv2.NetworkLoadBalancer(this, 'RTMPLoadBalancer', {
-      loadBalancerName: context.resourceName('rtmp-nlb'),
+    // V2: Force replacement to add Elastic IP (AWS doesn't allow adding EIP to existing NLB)
+    const rtmpLoadBalancer = new elbv2.NetworkLoadBalancer(this, 'RTMPLoadBalancerV2', {
+      loadBalancerName: context.resourceName('rtmp-nlb-v2'),
       vpc,
       internetFacing: true,
       vpcSubnets: {
