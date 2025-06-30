@@ -315,12 +315,31 @@ export class ApplicationStack extends cdk.Stack {
       defaultTargetGroups: [srsTargetGroup],
     });
 
-    // Network Load Balancer for RTMP (ALB doesn't support TCP)
+    // Import existing Elastic IP for static RTMP endpoint
+    const elasticIpAllocationId = 'eipalloc-054297e161bb78275'; // Your existing Elastic IP
+
+    // Network Load Balancer for RTMP with static Elastic IP
+    // NOTE: Single-AZ deployment for validation phase (only one Elastic IP available)
+    // For production, allocate one EIP per AZ for high availability
+    const primaryPublicSubnet = vpc.publicSubnets[0];
+    
     const rtmpLoadBalancer = new elbv2.NetworkLoadBalancer(this, 'RTMPLoadBalancer', {
       loadBalancerName: context.resourceName('rtmp-nlb'),
       vpc,
       internetFacing: true,
+      vpcSubnets: {
+        subnets: [primaryPublicSubnet], // Explicitly single-AZ for validation phase
+      },
     });
+
+    // Associate Elastic IP with the NLB using subnet mapping
+    const cfnNlb = rtmpLoadBalancer.node.defaultChild as elbv2.CfnLoadBalancer;
+    cfnNlb.addPropertyOverride('SubnetMappings', [
+      {
+        SubnetId: primaryPublicSubnet.subnetId,
+        AllocationId: elasticIpAllocationId,
+      },
+    ]);
 
     // Target Group for RTMP
     const rtmpTargetGroup = new elbv2.NetworkTargetGroup(this, 'RTMPTargetGroup', {
@@ -373,9 +392,15 @@ export class ApplicationStack extends cdk.Stack {
     });
 
     new cdk.CfnOutput(this, 'RTMPEndpoint', {
-      value: `rtmp://${rtmpLoadBalancer.loadBalancerDnsName}:1935/live`,
-      description: 'RTMP Publishing Endpoint (via NLB)',
+      value: `rtmp://52.213.32.59:1935/live`,
+      description: 'RTMP Publishing Endpoint (Static IP via Elastic IP)',
       exportName: context.stackName('rtmp-endpoint'),
+    });
+
+    new cdk.CfnOutput(this, 'RTMPStaticIP', {
+      value: '52.213.32.59',
+      description: 'Static IP for RTMP streaming (Elastic IP)',
+      exportName: context.stackName('rtmp-static-ip'),
     });
 
     new cdk.CfnOutput(this, 'ServiceName', {
@@ -403,8 +428,8 @@ export class ApplicationStack extends cdk.Stack {
     });
 
     new cdk.CfnOutput(this, 'EndpointSummary', {
-      value: `Dashboard: http://${this.loadBalancer.loadBalancerDnsName}/ | Streaming: http://${this.loadBalancer.loadBalancerDnsName}:8080/live/{stream}.m3u8 | RTMP: rtmp://${rtmpLoadBalancer.loadBalancerDnsName}:1935/live`,
-      description: '🎯 ECS ENDPOINTS - All services via Load Balancers',
+      value: `Dashboard: http://${this.loadBalancer.loadBalancerDnsName}/ | Streaming: http://${this.loadBalancer.loadBalancerDnsName}:8080/live/{stream}.m3u8 | RTMP: rtmp://52.213.32.59:1935/live`,
+      description: '🎯 ECS ENDPOINTS - All services via Load Balancers (RTMP via Static IP)',
       exportName: context.stackName('ecs-endpoints'),
     });
   }

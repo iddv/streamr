@@ -127,6 +127,10 @@ export class GitHubOidcStack extends cdk.Stack {
         'ec2:RebootInstances',
         'ec2:DescribeInstanceAttribute',
         'ec2:ModifyInstanceAttribute',
+        // Elastic IP permissions for static RTMP endpoint (read-only and association only)
+        'ec2:DescribeAddresses',
+        'ec2:AssociateAddress',
+        'ec2:DisassociateAddress',
       ],
       resources: ['*'], // Some EC2 actions require * (AWS limitation)
     }));
