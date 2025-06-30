@@ -12,8 +12,8 @@ TEST_TARGET = os.getenv("TEST_TARGET", "local")  # local, production, or any cus
 # URL mapping for different test targets
 URL_MAP = {
     "local": "http://localhost:8000",
-    "production": "http://streamr-p2p-beta-alb-1243469977.eu-west-1.elb.amazonaws.com",
-    "beta": "http://streamr-p2p-beta-alb-1243469977.eu-west-1.elb.amazonaws.com"
+    "production": "http://streamr-p2p-beta-alb-1130353833.eu-west-1.elb.amazonaws.com",
+    "beta": "http://streamr-p2p-beta-alb-1130353833.eu-west-1.elb.amazonaws.com"
 }
 
 def get_coordinator_url() -> str:
