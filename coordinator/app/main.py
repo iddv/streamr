@@ -19,6 +19,7 @@ from datetime import datetime, timedelta
 from . import models, schemas, database
 from .database import get_db
 from .payout_service import PayoutService
+from .migration_endpoints import router as migration_router
 
 load_dotenv()
 
@@ -33,6 +34,9 @@ models.Base.metadata.create_all(bind=database.engine)
 
 # Initialize services
 payout_service = PayoutService()
+
+# Include routers
+app.include_router(migration_router)
 
 # Helper function for authentication (placeholder)
 async def get_authenticated_node(db: Session = Depends(get_db)) -> str:
