@@ -324,16 +324,15 @@ export class ApplicationStack extends cdk.Stack {
     const primaryPublicSubnet = vpc.publicSubnets[0];
     
     // V2: Force replacement to add Elastic IP (AWS doesn't allow adding EIP to existing NLB)
+    // NOTE: When using Elastic IP, we must use SubnetMappings instead of vpcSubnets
     const rtmpLoadBalancer = new elbv2.NetworkLoadBalancer(this, 'RTMPLoadBalancerV2', {
       loadBalancerName: context.resourceName('rtmp-nlb-v2'),
       vpc,
       internetFacing: true,
-      vpcSubnets: {
-        subnets: [primaryPublicSubnet], // Explicitly single-AZ for validation phase
-      },
+      // Do NOT specify vpcSubnets when using SubnetMappings - AWS doesn't allow both
     });
 
-    // Associate Elastic IP with the NLB using subnet mapping
+    // Associate Elastic IP with the NLB using subnet mapping (replaces vpcSubnets)
     const cfnNlb = rtmpLoadBalancer.node.defaultChild as elbv2.CfnLoadBalancer;
     cfnNlb.addPropertyOverride('SubnetMappings', [
       {
@@ -341,6 +340,9 @@ export class ApplicationStack extends cdk.Stack {
         AllocationId: elasticIpAllocationId,
       },
     ]);
+    
+    // Remove the Subnets property since we're using SubnetMappings
+    cfnNlb.addPropertyDeletionOverride('Subnets');
 
     // Target Group for RTMP
     const rtmpTargetGroup = new elbv2.NetworkTargetGroup(this, 'RTMPTargetGroup', {
