@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamrP2P - Streams Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+        
+        .content {
+            padding: 30px;
+        }
+        
+        .actions {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary {
+            background: #4ecdc4;
+            color: white;
+        }
+        
+        .btn-secondary {
+            background: #95a5a6;
+            color: white;
+        }
+        
+        .btn-danger {
+            background: #e74c3c;
+            color: white;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        
+        .streams-grid {
+            display: grid;
+            gap: 20px;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+        }
+        
+        .stream-card {
+            border: 2px solid #ecf0f1;
+            border-radius: 12px;
+            padding: 20px;
+            background: #fafbfc;
+            transition: all 0.3s ease;
+        }
+        
+        .stream-card:hover {
+            border-color: #4ecdc4;
+            box-shadow: 0 5px 15px rgba(78, 205, 196, 0.2);
+        }
+        
+        .stream-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .stream-id {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        
+        .status-badge {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        
+        .status-READY { background: #3498db; color: white; }
+        .status-TESTING { background: #f39c12; color: white; }
+        .status-LIVE { background: #27ae60; color: white; }
+        .status-OFFLINE { background: #95a5a6; color: white; }
+        .status-STALE { background: #e67e22; color: white; }
+        .status-ARCHIVED { background: #34495e; color: white; }
+        
+        .stream-details {
+            margin-bottom: 15px;
+        }
+        
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 0.95em;
+        }
+        
+        .detail-label {
+            color: #7f8c8d;
+            font-weight: 500;
+        }
+        
+        .detail-value {
+            color: #2c3e50;
+            font-weight: bold;
+        }
+        
+        .stream-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .btn-small {
+            padding: 8px 16px;
+            font-size: 0.9em;
+        }
+        
+        .no-streams {
+            text-align: center;
+            padding: 60px 20px;
+            color: #7f8c8d;
+        }
+        
+        .no-streams h3 {
+            font-size: 1.5em;
+            margin-bottom: 10px;
+        }
+        
+        .refresh-info {
+            text-align: center;
+            margin-top: 30px;
+            color: #7f8c8d;
+            font-size: 0.9em;
+        }
+        
+        .live-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background: #27ae60;
+            border-radius: 50%;
+            margin-right: 8px;
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        .quick-actions {
+            background: #ecf0f1;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+        
+        .quick-actions h3 {
+            margin-bottom: 15px;
+            color: #2c3e50;
+        }
+        
+        @media (max-width: 768px) {
+            .streams-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .actions {
+                flex-direction: column;
+            }
+            
+            .stream-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎥 Streams Dashboard</h1>
+            <p>Manage and monitor your P2P streaming sessions</p>
+        </div>
+        
+        <div class="content">
+            <div class="quick-actions">
+                <h3>📋 Quick Actions</h3>
+                <div class="actions">
+                    <button class="btn btn-primary" onclick="refreshStreams()">
+                        🔄 Refresh Streams
+                    </button>
+                    <a href="/api/v1/economics/dashboard" class="btn btn-secondary">
+                        📊 Economics Dashboard
+                    </a>
+                    <a href="/economic-dashboard" class="btn btn-secondary">
+                        💰 Economic Validation
+                    </a>
+                    <a href="/dashboard" class="btn btn-secondary">
+                        🏠 Main Dashboard
+                    </a>
+                </div>
+            </div>
+            
+            <div id="streams-container">
+                <div class="streams-grid" id="streams-grid">
+                    <!-- Streams will be loaded here -->
+                </div>
+            </div>
+            
+            <div class="refresh-info">
+                <p>🔄 Dashboard auto-refreshes every 30 seconds</p>
+                <p>Last updated: <span id="last-updated">Loading...</span></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let refreshInterval;
+        
+        async function fetchStreams() {
+            try {
+                const response = await fetch('/streams');
+                const streams = await response.json();
+                return streams;
+            } catch (error) {
+                console.error('Error fetching streams:', error);
+                return [];
+            }
+        }
+        
+        function formatTimestamp(timestamp) {
+            if (!timestamp) return 'Never';
+            return new Date(timestamp).toLocaleString();
+        }
+        
+        function getTimeSince(timestamp) {
+            if (!timestamp) return 'Never';
+            const now = new Date();
+            const time = new Date(timestamp);
+            const diffMs = now - time;
+            const diffMins = Math.floor(diffMs / 60000);
+            const diffHours = Math.floor(diffMins / 60);
+            const diffDays = Math.floor(diffHours / 24);
+            
+            if (diffDays > 0) return `${diffDays}d ago`;
+            if (diffHours > 0) return `${diffHours}h ago`;
+            if (diffMins > 0) return `${diffMins}m ago`;
+            return 'Just now';
+        }
+        
+        function createStreamCard(stream) {
+            const isLive = stream.status === 'LIVE';
+            const liveIndicator = isLive ? '<span class="live-indicator"></span>' : '';
+            
+            return `
+                <div class="stream-card">
+                    <div class="stream-header">
+                        <div class="stream-id">${liveIndicator}${stream.stream_id}</div>
+                        <div class="status-badge status-${stream.status}">${stream.status}</div>
+                    </div>
+                    
+                    <div class="stream-details">
+                        <div class="detail-row">
+                            <span class="detail-label">Sponsor:</span>
+                            <span class="detail-value">${stream.sponsor_address}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Token Balance:</span>
+                            <span class="detail-value">${stream.token_balance}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Created:</span>
+                            <span class="detail-value">${getTimeSince(stream.created_at)}</span>
+                        </div>
+                        ${stream.live_started_at ? `
+                        <div class="detail-row">
+                            <span class="detail-label">Went Live:</span>
+                            <span class="detail-value">${getTimeSince(stream.live_started_at)}</span>
+                        </div>
+                        ` : ''}
+                        ${stream.offline_at ? `
+                        <div class="detail-row">
+                            <span class="detail-label">Went Offline:</span>
+                            <span class="detail-value">${getTimeSince(stream.offline_at)}</span>
+                        </div>
+                        ` : ''}
+                    </div>
+                    
+                    <div class="stream-actions">
+                        ${getStreamActions(stream)}
+                    </div>
+                </div>
+            `;
+        }
+        
+        function getStreamActions(stream) {
+            const actions = [];
+            
+            // Status transition buttons based on current status
+            switch(stream.status) {
+                case 'READY':
+                    actions.push(`<button class="btn btn-primary btn-small" onclick="updateStreamStatus('${stream.stream_id}', 'TESTING')">🧪 Start Testing</button>`);
+                    actions.push(`<button class="btn btn-primary btn-small" onclick="updateStreamStatus('${stream.stream_id}', 'LIVE')">🚀 Go Live</button>`);
+                    break;
+                case 'TESTING':
+                    actions.push(`<button class="btn btn-primary btn-small" onclick="updateStreamStatus('${stream.stream_id}', 'LIVE')">🚀 Go Live</button>`);
+                    actions.push(`<button class="btn btn-secondary btn-small" onclick="updateStreamStatus('${stream.stream_id}', 'READY')">⏪ Back to Ready</button>`);
+                    actions.push(`<button class="btn btn-secondary btn-small" onclick="updateStreamStatus('${stream.stream_id}', 'OFFLINE')">⏹️ Stop</button>`);
+                    break;
+                case 'LIVE':
+                    actions.push(`<button class="btn btn-secondary btn-small" onclick="updateStreamStatus('${stream.stream_id}', 'OFFLINE')">⏹️ Stop Stream</button>`);
+                    break;
+                case 'OFFLINE':
+                    actions.push(`<button class="btn btn-primary btn-small" onclick="updateStreamStatus('${stream.stream_id}', 'READY')">🔄 Restart</button>`);
+                    actions.push(`<button class="btn btn-secondary btn-small" onclick="updateStreamStatus('${stream.stream_id}', 'ARCHIVED')">📦 Archive</button>`);
+                    break;
+                case 'STALE':
+                    actions.push(`<button class="btn btn-primary btn-small" onclick="updateStreamStatus('${stream.stream_id}', 'READY')">🔄 Reactivate</button>`);
+                    actions.push(`<button class="btn btn-secondary btn-small" onclick="updateStreamStatus('${stream.stream_id}', 'ARCHIVED')">📦 Archive</button>`);
+                    break;
+            }
+            
+            // Always show delete option (except for LIVE streams)
+            if (stream.status !== 'LIVE') {
+                actions.push(`<button class="btn btn-danger btn-small" onclick="deleteStream('${stream.stream_id}')">🗑️ Delete</button>`);
+            }
+            
+            return actions.join('');
+        }
+        
+        async function updateStreamStatus(streamId, newStatus) {
+            try {
+                const response = await fetch(`/streams/${streamId}/status`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ status: newStatus })
+                });
+                
+                if (response.ok) {
+                    await refreshStreams();
+                } else {
+                    const error = await response.json();
+                    alert(`Error: ${error.detail}`);
+                }
+            } catch (error) {
+                alert(`Error updating stream: ${error.message}`);
+            }
+        }
+        
+        async function deleteStream(streamId) {
+            if (!confirm(`Are you sure you want to delete stream "${streamId}"? This cannot be undone.`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/streams/${streamId}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    await refreshStreams();
+                } else {
+                    const error = await response.json();
+                    alert(`Error: ${error.detail}`);
+                }
+            } catch (error) {
+                alert(`Error deleting stream: ${error.message}`);
+            }
+        }
+        
+        async function refreshStreams() {
+            const streamsGrid = document.getElementById('streams-grid');
+            const lastUpdated = document.getElementById('last-updated');
+            
+            try {
+                const streams = await fetchStreams();
+                
+                if (streams.length === 0) {
+                    streamsGrid.innerHTML = `
+                        <div class="no-streams">
+                            <h3>🎬 No streams found</h3>
+                            <p>Create a stream to get started with P2P streaming!</p>
+                        </div>
+                    `;
+                } else {
+                    streamsGrid.innerHTML = streams.map(createStreamCard).join('');
+                }
+                
+                lastUpdated.textContent = new Date().toLocaleTimeString();
+            } catch (error) {
+                streamsGrid.innerHTML = `
+                    <div class="no-streams">
+                        <h3>❌ Error loading streams</h3>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+        
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            refreshStreams();
+            
+            // Auto-refresh every 30 seconds
+            refreshInterval = setInterval(refreshStreams, 30000);
+        });
+        
+        // Clean up interval when page unloads
+        window.addEventListener('beforeunload', function() {
+            if (refreshInterval) {
+                clearInterval(refreshInterval);
+            }
+        });
+    </script>
+</body>
+</html> 

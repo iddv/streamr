@@ -294,6 +294,17 @@ async def economic_dashboard():
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="Dashboard template not found")
 
+@app.get("/streams-dashboard", response_class=HTMLResponse)
+async def streams_dashboard():
+    """Serve the streams management HTML dashboard"""
+    template_path = os.path.join(os.path.dirname(__file__), "templates", "streams_dashboard.html")
+    try:
+        with open(template_path, 'r', encoding='utf-8') as f:
+            html_content = f.read()
+        return HTMLResponse(content=html_content)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Streams dashboard template not found")
+
 @app.post("/api/v1/sessions/{session_id}/bandwidth-report", response_model=schemas.BandwidthReportResponse)
 async def report_bandwidth(
     session_id: str,
