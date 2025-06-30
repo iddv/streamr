@@ -344,9 +344,9 @@ export class ApplicationStack extends cdk.Stack {
     // Remove the Subnets property since we're using SubnetMappings
     cfnNlb.addPropertyDeletionOverride('Subnets');
 
-    // Target Group for RTMP
-    const rtmpTargetGroup = new elbv2.NetworkTargetGroup(this, 'RTMPTargetGroup', {
-      targetGroupName: context.resourceName('rtmp-tg'),
+    // Target Group for RTMP V2 (new target group for new NLB - AWS best practice)
+    const rtmpTargetGroup = new elbv2.NetworkTargetGroup(this, 'RTMPTargetGroupV2', {
+      targetGroupName: context.resourceName('rtmp-tg-v2'),
       port: 1935,
       protocol: elbv2.Protocol.TCP,
       vpc,
