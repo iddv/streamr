@@ -1,0 +1,24 @@
+Based on my web search, here are the key findings about Go RTMP libraries:
+
+**Mature Go RTMP Libraries Available:**
+1. **Monibuca** - A comprehensive Go streaming server framework with RTMP support, actively maintained by Chinese developers
+2. **untangledco/streaming** - Contains packages for media streaming in Go, including RTP and other protocols  
+3. **Harshitk-cp/rtmp_server** - A Go RTMP server that specifically handles RTMP to WebRTC transcoding using Pion WebRTC
+4. **yutopop/rtmp** - Referenced in the Harshitk project, appears to be a Go RTMP library
+
+**Key Insights:**
+- There ARE production-ready Go RTMP implementations available
+- The Harshitk project demonstrates exactly what we want: RTMP input → WebRTC output using pure Go
+- Pion WebRTC is the established Go WebRTC library (mentioned in awesome-go)
+- The Node.js WHIP/WHEP implementation still uses external C++ binaries (rtmp_relay)
+
+**Technical Decision Impact:**
+This significantly changes the recommendation. Instead of embedding C++ rtmp_relay, we could potentially use pure Go RTMP libraries, making the binary truly self-contained with zero external dependencies.
+
+Given this new information:
+1. Should we revise the technical approach to use native Go RTMP instead of embedding C++ binaries?
+2. How does this affect our Phase 0 MVP timeline and complexity?
+3. What are the trade-offs between using established C++ tooling vs newer Go implementations?
+4. Does this change the viability of the Rust approach as well?
+
+Please provide your updated technical assessment based on these Go RTMP library findings. 

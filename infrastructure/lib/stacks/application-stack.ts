@@ -353,8 +353,9 @@ export class ApplicationStack extends cdk.Stack {
       targetType: elbv2.TargetType.IP,
       healthCheck: {
         enabled: true,
-        protocol: elbv2.Protocol.TCP,
-        port: '1935',
+        protocol: elbv2.Protocol.HTTP,
+        port: '1985',  // Use SRS HTTP API port instead of raw RTMP
+        path: '/api/v1/versions',  // SRS health check endpoint
         healthyThresholdCount: 2,
         unhealthyThresholdCount: 2,
         timeout: cdk.Duration.seconds(6),
