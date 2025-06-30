@@ -152,7 +152,7 @@
 <body>
     <div class="header">
         <h1>StreamrP2P Economic Validation</h1>
-        <p>Phase 1: Proving P2P Economics Before Building Friend UI</p>
+        <p>Real-time Economic Validation & Trust Monitoring</p>
     </div>
 
     <button class="refresh-btn" onclick="loadDashboard()">🔄 Refresh Data</button>
@@ -325,7 +325,7 @@
                     </div>
                     <div>
                         <h4>Suspicious Reports</h4>
-                        <p style="font-size: 1.5em; margin: 5px 0;">${data.suspicious_activity.length}</p>
+                        <p style="font-size: 1.5em; margin: 5px 0;">${data.suspicious_activity[0]?.count || 0}</p>
                     </div>
                     <div>
                         <h4>Last Updated</h4>
