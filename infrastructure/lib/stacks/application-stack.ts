@@ -237,6 +237,10 @@ export class ApplicationStack extends cdk.Stack {
       }
     );
 
+    // FIXED: Define target AZ for consistent NLB and ECS placement (prevents AZ mismatch)
+    // Explicitly target eu-west-1a to match Elastic IP allocation and ensure deterministic behavior
+    const targetAz = 'eu-west-1a'; // Single-EIP setup - must match EIP's AZ for proper routing
+
     // Application Load Balancer
     this.loadBalancer = new elbv2.ApplicationLoadBalancer(this, 'LoadBalancer', {
       loadBalancerName: context.resourceName('alb'),
@@ -252,9 +256,11 @@ export class ApplicationStack extends cdk.Stack {
       taskDefinition: this.taskDefinition,
       desiredCount: 1,
       securityGroups: [this.serviceSecurityGroup],
-      vpcSubnets: {
-        subnetType: ec2.SubnetType.PUBLIC, // Use public subnets since NAT Gateway is disabled
-      },
+      // FIXED: Pin ECS service to same AZ as NLB to prevent AZ mismatch during deployment
+      vpcSubnets: vpc.selectSubnets({
+        availabilityZones: [targetAz], // Use same AZ as NLB for target group health
+        subnetType: ec2.SubnetType.PUBLIC,
+      }),
       assignPublicIp: true, // Required for public subnets to pull images from ECR
       healthCheckGracePeriod: cdk.Duration.minutes(5),
     });
@@ -321,7 +327,13 @@ export class ApplicationStack extends cdk.Stack {
     // Network Load Balancer for RTMP with static Elastic IP
     // NOTE: Single-AZ deployment for validation phase (only one Elastic IP available)
     // For production, allocate one EIP per AZ for high availability
-    const primaryPublicSubnet = vpc.publicSubnets[0];
+    
+    // FIXED: Use consistent target AZ for both NLB and ECS to prevent AZ mismatch
+    const primaryPublicSubnet = vpc.publicSubnets.find(subnet => subnet.availabilityZone === targetAz);
+    
+    if (!primaryPublicSubnet) {
+      throw new Error(`No public subnet found in target AZ: ${targetAz}`);
+    }
     
     // V2: Force replacement to add Elastic IP (AWS doesn't allow adding EIP to existing NLB)
     // NOTE: When using Elastic IP, we must use SubnetMappings instead of vpcSubnets
