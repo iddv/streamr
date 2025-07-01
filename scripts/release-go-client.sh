@@ -5,10 +5,68 @@
 
 set -e
 
+# Get latest release version for auto-increment suggestion
+get_latest_version() {
+    git tag -l "go-client-v*" | sort -V | tail -1 | sed 's/go-client-v//'
+}
+
+suggest_next_version() {
+    local latest=$(get_latest_version)
+    if [ -z "$latest" ]; then
+        echo "v0.1.0"
+        return
+    fi
+    
+    # Parse version (remove 'v' prefix if present)
+    latest=${latest#v}
+    
+    # Split into parts
+    IFS='.' read -r major minor patch <<< "$latest"
+    
+    # Increment patch version
+    patch=$((patch + 1))
+    
+    echo "v${major}.${minor}.${patch}"
+}
+
+# Quick commands
 VERSION="$1"
+
+if [ "$VERSION" = "--next" ]; then
+    suggested=$(suggest_next_version)
+    echo "💡 Next suggested version: $suggested"
+    echo "🚀 To release: $0 $suggested"
+    exit 0
+fi
+
+if [ "$VERSION" = "--latest" ]; then
+    latest=$(get_latest_version)
+    if [ -n "$latest" ]; then
+        echo "📋 Latest release: v$latest"
+    else
+        echo "📋 No releases yet"
+    fi
+    exit 0
+fi
+
 if [ -z "$VERSION" ]; then
+    latest=$(get_latest_version)
+    suggested=$(suggest_next_version)
+    
     echo "❌ Usage: $0 <version>"
-    echo "   Example: $0 v0.1.0"
+    echo ""
+    if [ -n "$latest" ]; then
+        echo "📋 Current latest: v$latest"
+        echo "💡 Suggested next: $suggested"
+        echo ""
+        echo "Examples:"
+        echo "   $0 $suggested           # Patch release (bug fixes)"
+        echo "   $0 v0.$(($(echo $latest | cut -d. -f2) + 1)).0    # Minor release (new features)"
+        echo "   $0 v$(($(echo $latest | cut -d. -f1) + 1)).0.0    # Major release (breaking changes)"
+    else
+        echo "💡 Suggested first: v0.1.0"
+        echo "   Example: $0 v0.1.0"
+    fi
     exit 1
 fi
 
@@ -27,6 +85,10 @@ echo "======================================="
 echo "📦 Version: $VERSION"
 echo "📁 Project Root: $PROJECT_ROOT"
 echo "🛠️ Go Client Dir: $GO_CLIENT_DIR"
+latest=$(get_latest_version)
+if [ -n "$latest" ]; then
+    echo "📋 Previous: v$latest"
+fi
 echo ""
 
 # Check if we're in a git repository
