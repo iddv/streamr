@@ -8,6 +8,18 @@
 
 ---
 
+## ✅ **Current Status (Updated January 2025)**
+
+🎉 **Good news! The streaming infrastructure is now working:**
+- ✅ **RTMP Streaming**: Live and working at `rtmp://52.213.32.59:1935/live`
+- ✅ **Dashboard**: Real-time monitoring at the URL below
+- ✅ **Friend Nodes**: Setup scripts tested and working
+- ✅ **Stream Playback**: HLS streaming confirmed working
+
+**What this means for you**: The setup should work smoothly! If you encounter issues, it's likely router/firewall configuration (which we'll help you fix).
+
+---
+
 ## 🎯 **Super Simple Setup**
 
 ### **Copy-Paste This Into Your Terminal:**
@@ -39,7 +51,9 @@ Help me set up a StreamrP2P friend node to support my friend's stream.
 2. Navigate: cd streamr
 3. Run setup: ./scripts/setup-friend-node.sh obs-test
 4. Check Docker is installed first
-5. Show me the final URL I should share with my friend
+5. Help me get my public IP address and construct the final shareable URL
+
+The final URL should be: http://[MY_PUBLIC_IP]:8081/live/obs-test.m3u8
 
 Make sure to test the setup works locally before giving me the shareable URL.
 ```
@@ -60,6 +74,17 @@ After setup, you should see:
 ```
 
 **Send that relay URL to your friend!** 🎉
+
+### **📋 Final Step: Get Your Public IP**
+
+**The setup script will help, but you can also:**
+```bash
+# Get your public IP
+curl ifconfig.me
+
+# Your shareable URL will be:
+echo "http://$(curl -s ifconfig.me):8081/live/YOUR_STREAM_KEY.m3u8"
+```
 
 ---
 

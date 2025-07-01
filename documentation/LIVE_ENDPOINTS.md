@@ -2,44 +2,44 @@
 
 > **🎯 STABLE ARCHITECTURE DEPLOYED!** These endpoints now use **permanent Elastic IP** and **stable ALB DNS** - they will **NEVER CHANGE** on redeployments!
 
-## ⚡ **STABLE ENDPOINTS (Updated Jun 20, 2025)**
+## ⚡ **STABLE ENDPOINTS (Updated Jan 2025)**
 
 ### 🎮 **For Streamers**
 ```bash
 # RTMP Publishing (OBS Studio, etc.)
-rtmp://108.129.47.155:1935/live/{your-stream-key}
+rtmp://52.213.32.59:1935/live/{your-stream-key}
 ```
 
 ### 📺 **For Viewers** 
 ```bash
 # HTTP-FLV (RECOMMENDED for VLC - Low latency)
-http://108.129.47.155:8080/live/{stream-name}.flv
+http://52.213.32.59:8080/live/{stream-name}.flv
 
 # HLS (For web browsers - Higher latency)
-http://108.129.47.155:8080/live/{stream-name}.m3u8
+http://52.213.32.59:8080/live/{stream-name}.m3u8
 
 # Examples with existing stream:
-http://108.129.47.155:8080/live/obs-test.flv    (VLC)
-http://108.129.47.155:8080/live/obs-test.m3u8   (Browser)
+http://52.213.32.59:8080/live/obs-test.flv    (VLC)
+http://52.213.32.59:8080/live/obs-test.m3u8   (Browser)
 ```
 
 ### 🌐 **Web Dashboard & API**
 ```bash
 # Main Dashboard (Stable ALB DNS)
-http://streamr-p2p-beta-alb-1243469977.eu-west-1.elb.amazonaws.com/
+http://streamr-p2p-beta-alb-1130353833.eu-west-1.elb.amazonaws.com/
 
 # API Health Check
-http://streamr-p2p-beta-alb-1243469977.eu-west-1.elb.amazonaws.com/health
+http://streamr-p2p-beta-alb-1130353833.eu-west-1.elb.amazonaws.com/health
 
 # API Endpoints
-http://streamr-p2p-beta-alb-1243469977.eu-west-1.elb.amazonaws.com/streams
-http://streamr-p2p-beta-alb-1243469977.eu-west-1.elb.amazonaws.com/payouts
+http://streamr-p2p-beta-alb-1130353833.eu-west-1.elb.amazonaws.com/streams
+http://streamr-p2p-beta-alb-1130353833.eu-west-1.elb.amazonaws.com/payouts
 ```
 
 ### 🔧 **SRS Admin Console**
 ```bash
 # SRS Server Console (Direct Elastic IP) - ✅ WORKING
-http://108.129.47.155:8080/
+http://52.213.32.59:8080/
 
 # Note: API endpoint may vary, console works for monitoring
 ```
@@ -54,8 +54,8 @@ http://108.129.47.155:8080/
 - **Friends**: Had to update configurations constantly
 
 ### **After (Stable)** ✅
-- **Elastic IP**: `108.129.47.155` (PERMANENT - never changes)
-- **ALB DNS**: `streamr-p2p-beta-alb-*.elb.amazonaws.com` (STABLE)
+- **Elastic IP**: `52.213.32.59` (PERMANENT - never changes)
+- **ALB DNS**: `streamr-p2p-beta-alb-1130353833.eu-west-1.elb.amazonaws.com` (STABLE)
 - **Documentation**: Never breaks again
 - **Friends**: Set URLs once, work forever
 
@@ -71,7 +71,7 @@ http://108.129.47.155:8080/
 | 💾 **Database** | ✅ OPERATIONAL | Internal |
 | ⚡ **Cache** | ✅ OPERATIONAL | Internal |
 
-**Last Updated**: June 20, 2025, 21:15 CEST  
+**Last Updated**: January 2025  
 **Architecture**: Stable Endpoint v2.0 with Elastic IP + Fixed Security Groups  
 **Deployment**: streamr-p2p-beta-ireland-application
 
@@ -83,16 +83,16 @@ http://108.129.47.155:8080/
 
 ```bash
 # For Streamers (RTMP)
-rtmp://108.129.47.155:1935/live/
+rtmp://52.213.32.59:1935/live/
 
 # For Viewers - VLC (RECOMMENDED) 
-http://108.129.47.155:8080/live/{stream}.flv
+http://52.213.32.59:8080/live/{stream}.flv
 
 # For Viewers - Web Browsers
-http://108.129.47.155:8080/live/{stream}.m3u8
+http://52.213.32.59:8080/live/{stream}.m3u8
 
 # Web Dashboard
-http://streamr-p2p-beta-alb-1243469977.eu-west-1.elb.amazonaws.com/
+http://streamr-p2p-beta-alb-1130353833.eu-west-1.elb.amazonaws.com/
 ```
 
 **✨ Problem Solved**: 

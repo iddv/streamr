@@ -13,7 +13,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Configuration
-COORDINATOR_URL="${COORDINATOR_URL:-http://streamr-p2p-beta-alb-1243469977.eu-west-1.elb.amazonaws.com}"
+COORDINATOR_URL="${COORDINATOR_URL:-http://streamr-p2p-beta-alb-1130353833.eu-west-1.elb.amazonaws.com}"
 STREAM_ID="${STREAM_ID:-iddv-stream}"
 
 # Function to display usage
