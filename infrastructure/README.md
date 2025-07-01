@@ -321,3 +321,4 @@ npx cdk deploy streamr-p2p-beta-ireland-foundation --context stage=beta
 
 **Ready to deploy?** Run `./scripts/deploy-beta.sh` and get your StreamrP2P platform running in the cloud! 🚀
 # Fresh deployment after database migration fix
+# Trigger deployment after rollback
