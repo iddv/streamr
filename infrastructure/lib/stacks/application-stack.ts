@@ -304,8 +304,14 @@ export class ApplicationStack extends cdk.Stack {
     });
 
     // Register service with target groups
-    coordinatorTargetGroup.addTarget(this.service);
-    srsTargetGroup.addTarget(this.service);
+    coordinatorTargetGroup.addTarget(this.service.loadBalancerTarget({
+      containerName: 'coordinator',
+      containerPort: 8000,
+    }));
+    srsTargetGroup.addTarget(this.service.loadBalancerTarget({
+      containerName: 'srs', 
+      containerPort: 8080,
+    }));
 
     // HTTP Listener for coordinator API (default)
     this.loadBalancer.addListener('HTTPListener', {
