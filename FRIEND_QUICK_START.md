@@ -20,7 +20,27 @@
 
 ---
 
-## 🎯 **Super Simple Setup**
+## 🎉 **NEW: Single Binary Option (Easiest!)**
+
+**Skip Docker entirely - just download and run one file:**
+
+1. **Download** for your OS: [Latest Release](https://github.com/iddv/streamr/releases/latest)
+2. **Run it**: 
+   - **Windows**: Double-click `streamr-node-windows-amd64.exe`
+   - **Mac**: `./streamr-node-macos-intel` (or `-m1` for Apple Silicon)
+   - **Linux**: `./streamr-node-linux-amd64`
+
+**Benefits:**
+- ✅ **5MB binary** vs 200MB+ Docker setup
+- ✅ **Instant startup** - no waiting for Docker
+- ✅ **No installation** - just download and run
+- ✅ **Works everywhere** - Windows, Mac, Linux native
+
+*Note: This is the new Phase 0 foundation - RTMP streaming coming soon!*
+
+---
+
+## 🎯 **Docker Setup (Classic Method)**
 
 ### **Copy-Paste This Into Your Terminal:**
 

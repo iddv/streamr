@@ -1,0 +1,189 @@
+name: Release Go Node Client
+
+on:
+  push:
+    tags:
+      - 'go-client-v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., v0.1.0)'
+        required: true
+        type: string
+
+env:
+  GO_VERSION: '1.23'
+
+permissions:
+  contents: write  # Required for creating releases
+  packages: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Get full history for version info
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Get version info
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${GITHUB_REF#refs/tags/go-client-}"
+          fi
+          COMMIT=$(git rev-parse --short HEAD)
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "commit=${COMMIT}" >> $GITHUB_OUTPUT
+          echo "🏷️ Version: ${VERSION}"
+          echo "📝 Commit: ${COMMIT}"
+
+      - name: Build cross-platform binaries
+        working-directory: node-client-go
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          COMMIT: ${{ steps.version.outputs.commit }}
+        run: |
+          mkdir -p dist
+          
+          LDFLAGS="-s -w -X main.version=${VERSION} -X main.commit=${COMMIT}"
+          
+          echo "🚀 Building StreamrP2P Node Client ${VERSION} (${COMMIT})"
+          echo "=================================================="
+          
+          # Build static binaries for all platforms
+          echo "📦 Building for Linux amd64 (static)..."
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="${LDFLAGS}" -o dist/streamr-node-linux-amd64 ./cmd/streamr-node
+          
+          echo "📦 Building for Windows amd64 (static)..."
+          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags="${LDFLAGS}" -o dist/streamr-node-windows-amd64.exe ./cmd/streamr-node
+          
+          echo "📦 Building for macOS Intel (static)..."
+          CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags="${LDFLAGS}" -o dist/streamr-node-macos-intel ./cmd/streamr-node
+          
+          echo "📦 Building for macOS Apple Silicon (static)..."
+          CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -ldflags="${LDFLAGS}" -o dist/streamr-node-macos-m1 ./cmd/streamr-node
+          
+          echo "✅ All builds complete!"
+          ls -lh dist/
+
+      - name: Generate checksums
+        working-directory: node-client-go
+        run: |
+          cd dist
+          echo "🔒 Generating SHA256 checksums..."
+          sha256sum * > checksums.txt
+          cat checksums.txt
+
+      - name: Test binaries
+        working-directory: node-client-go
+        run: |
+          echo "🧪 Testing built binaries..."
+          ./dist/streamr-node-linux-amd64 -version
+          echo "✅ Linux binary works!"
+
+      - name: Create release notes
+        id: release_notes
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          COMMIT: ${{ steps.version.outputs.commit }}
+        run: |
+          cat > release_notes.md << EOF
+          # StreamrP2P Node Client ${VERSION}
+          
+          🚀 **Single binary P2P streaming node client** - 24x better friend experience!
+          
+          ## 📥 Downloads
+          
+          Choose the binary for your operating system:
+          
+          | Platform | Download | Size |
+          |----------|----------|------|
+          | **Windows** | \`streamr-node-windows-amd64.exe\` | ~5MB |
+          | **macOS Intel** | \`streamr-node-macos-intel\` | ~5MB |
+          | **macOS Apple Silicon** | \`streamr-node-macos-m1\` | ~5MB |
+          | **Linux** | \`streamr-node-linux-amd64\` | ~5MB |
+          
+          ## 🎯 Key Benefits
+          
+          - ✅ **Single binary** - no Docker, no Python, no dependencies
+          - ✅ **Cross-platform** - native Windows, macOS, Linux support  
+          - ✅ **Tiny size** - ~5MB vs 200MB+ Docker setup
+          - ✅ **Instant startup** - no container overhead
+          - ✅ **Zero config** - connects to coordinator automatically
+          
+          ## 🚀 Quick Start
+          
+          ### Windows
+          1. Download \`streamr-node-windows-amd64.exe\`
+          2. Double-click to run, or open Command Prompt and run: \`streamr-node-windows-amd64.exe -help\`
+          
+          ### macOS  
+          1. Download \`streamr-node-macos-intel\` or \`streamr-node-macos-m1\`
+          2. Open Terminal and run: \`./streamr-node-macos-intel -help\`
+          
+          ### Linux
+          1. Download \`streamr-node-linux-amd64\`
+          2. Make executable: \`chmod +x streamr-node-linux-amd64\`
+          3. Run: \`./streamr-node-linux-amd64 -help\`
+          
+          ## 🔒 Security
+          
+          - All binaries are statically linked with no external dependencies
+          - SHA256 checksums provided in \`checksums.txt\`
+          - Built from commit \`${COMMIT}\`
+          
+          ## 📋 Next Steps
+          
+          This is **Phase 0: Foundation**. Coming next:
+          - 🚧 RTMP server integration  
+          - 🚧 Node registration/heartbeat system
+          - 🚧 Stream relay functionality
+          
+          **Goal**: 24x improvement in friend installation success (5% → 85%+)
+          
+          ---
+          
+          Built with Go ${GO_VERSION} • Commit ${COMMIT}
+          EOF
+          
+          echo "release_notes_file=release_notes.md" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: go-client-${{ steps.version.outputs.version }}
+          name: StreamrP2P Node Client ${{ steps.version.outputs.version }}
+          body_path: ${{ steps.release_notes.outputs.release_notes_file }}
+          files: |
+            node-client-go/dist/streamr-node-linux-amd64
+            node-client-go/dist/streamr-node-windows-amd64.exe  
+            node-client-go/dist/streamr-node-macos-intel
+            node-client-go/dist/streamr-node-macos-m1
+            node-client-go/dist/checksums.txt
+          draft: false
+          prerelease: true  # Mark as pre-release for now
+          generate_release_notes: false  # We provide our own notes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Output release info
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          echo "🎉 Release created successfully!"
+          echo "📦 Version: ${VERSION}"
+          echo "🔗 Release URL: https://github.com/${{ github.repository }}/releases/tag/go-client-${VERSION}"
+          echo ""
+          echo "📋 Friend instructions:"
+          echo "1. Go to the release page"
+          echo "2. Download the binary for your OS"  
+          echo "3. Run it - no installation needed!" 

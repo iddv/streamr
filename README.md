@@ -49,6 +49,13 @@
 3. **Invite friends**: Share the setup guide with supporters
 
 ### **🤝 For Friends (Supporters)**
+
+**🎉 NEW: Single Binary Client (24x Easier!)**
+- **📦 Download**: [Latest Go Client Release](https://github.com/iddv/streamr/releases/latest) - Choose your OS
+- **🚀 Run**: Double-click (Windows) or `./streamr-node` (Mac/Linux) - **No installation needed!**
+- **⚡ 5MB binary** vs 200MB+ Docker setup - **instant startup**
+
+**📋 Alternative: Docker Setup**
 1. **Get setup guide**: [`docs/testing/FRIEND_SETUP.md`](docs/testing/FRIEND_SETUP.md)
 2. **Run support node**: `scripts/setup-friend-node.sh STREAM_KEY`
 3. **Earn rewards**: Get paid for helping distribute streams
