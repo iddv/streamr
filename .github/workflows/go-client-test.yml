@@ -1,0 +1,82 @@
+name: Go Client Build Test
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'node-client-go/**'
+      - '.github/workflows/go-client-test.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'node-client-go/**'
+
+env:
+  GO_VERSION: '1.23'
+
+jobs:
+  test-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Get commit info
+        id: commit
+        run: |
+          COMMIT=$(git rev-parse --short HEAD)
+          echo "commit=${COMMIT}" >> $GITHUB_OUTPUT
+          echo "📝 Testing commit: ${COMMIT}"
+
+      - name: Test Go module
+        working-directory: node-client-go
+        run: |
+          echo "🧪 Testing Go module..."
+          go mod verify
+          go vet ./...
+          go test ./...
+
+      - name: Test cross-platform builds
+        working-directory: node-client-go
+        env:
+          COMMIT: ${{ steps.commit.outputs.commit }}
+        run: |
+          echo "🔨 Testing cross-platform builds..."
+          LDFLAGS="-s -w -X main.version=test-build -X main.commit=${COMMIT}"
+          
+          echo "📦 Testing Linux build..."
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="${LDFLAGS}" -o test-linux ./cmd/streamr-node
+          
+          echo "📦 Testing Windows build..."
+          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags="${LDFLAGS}" -o test-windows.exe ./cmd/streamr-node
+          
+          echo "📦 Testing macOS build..."
+          CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags="${LDFLAGS}" -o test-macos ./cmd/streamr-node
+          
+          echo "✅ All builds successful!"
+
+      - name: Test binary functionality
+        working-directory: node-client-go
+        run: |
+          echo "🧪 Testing binary functionality..."
+          ./test-linux -version
+          ./test-linux -help
+          echo "✅ Binary tests passed!"
+
+      - name: Cleanup test artifacts
+        working-directory: node-client-go
+        run: |
+          rm -f test-linux test-windows.exe test-macos
+          echo "🧹 Test artifacts cleaned up"
+
+      - name: Report results
+        run: |
+          echo "✅ Go client build test completed successfully!"
+          echo "📦 All platforms build correctly"
+          echo "🧪 All functionality tests pass"
+          echo "🚀 Ready for release when needed" 
