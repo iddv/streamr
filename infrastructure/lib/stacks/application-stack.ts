@@ -238,8 +238,8 @@ export class ApplicationStack extends cdk.Stack {
     );
 
     // FIXED: Define target AZ for consistent NLB and ECS placement (prevents AZ mismatch)
-    // Explicitly target eu-west-1a to match Elastic IP allocation and ensure deterministic behavior
-    const targetAz = 'eu-west-1a'; // Single-EIP setup - must match EIP's AZ for proper routing
+    // Use the first available AZ that CDK knows about for deterministic single-EIP setup
+    const targetAz = vpc.availabilityZones[0]; // Dynamic AZ selection - matches CDK synthesis
 
     // Application Load Balancer
     this.loadBalancer = new elbv2.ApplicationLoadBalancer(this, 'LoadBalancer', {
