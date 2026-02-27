@@ -18,6 +18,20 @@ depends_on = None
 
 
 def upgrade() -> None:
+    # Check if tables already exist (e.g. created by legacy create_all()).
+    # If so, skip creation — the schema is already in place.
+    conn = op.get_bind()
+    result = conn.execute(
+        sa.text(
+            "SELECT EXISTS (SELECT 1 FROM information_schema.tables "
+            "WHERE table_schema = 'public' AND table_name = 'streams')"
+        )
+    )
+    tables_exist = result.scalar()
+    if tables_exist:
+        # Tables already created by legacy code — nothing to do.
+        return
+
     # --- streams ---
     op.create_table(
         "streams",
