@@ -117,21 +117,11 @@ def upgrade() -> None:
     # ---------------------------------------------------------------
     # Step 4: Change nodes.node_id unique → composite (node_id, stream_id)
     # ---------------------------------------------------------------
-    # Drop existing unique constraint on node_id.
-    # The 001 migration created it via unique=True on the Column, which
-    # in PostgreSQL produces a unique index named "ix_nodes_node_id" or
-    # a constraint. We drop the index that backs the unique constraint.
-    op.drop_index("ix_nodes_node_id", table_name="nodes")
-
-    # Also need to handle FKs that reference nodes.node_id before we
-    # can drop its uniqueness. The referencing tables are:
+    # Drop FKs referencing nodes.node_id FIRST — the unique index
+    # backs these constraints, so they must go before the index.
     #   - probe_results.node_id → nodes.node_id
     #   - bandwidth_ledger.reporting_node_id → nodes.node_id
     #   - user_accounts.user_id → nodes.node_id
-    # We'll drop these FKs, change the constraint, then re-create them
-    # pointing to user_identities where appropriate.
-
-    # Drop FKs referencing nodes.node_id
     op.drop_constraint(
         "probe_results_node_id_fkey", "probe_results", type_="foreignkey"
     )
@@ -143,6 +133,9 @@ def upgrade() -> None:
     op.drop_constraint(
         "user_accounts_user_id_fkey", "user_accounts", type_="foreignkey"
     )
+
+    # Now safe to drop the unique index on node_id
+    op.drop_index("ix_nodes_node_id", table_name="nodes")
 
     # Add composite unique constraint on (node_id, stream_id)
     op.create_unique_constraint(
