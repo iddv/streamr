@@ -62,6 +62,14 @@ if [ -n "$REDIS_URL" ]; then
     echo "   Redis: $REDIS_URL"
 fi
 
+echo "🔄 Running database migrations..."
+if alembic upgrade head; then
+    echo "✅ Database migrations completed successfully"
+else
+    echo "❌ ERROR: Database migration failed — aborting startup"
+    exit 1
+fi
+
 echo "🎯 Starting StreamrP2P Coordinator..."
 
 # Execute the main command

@@ -3,7 +3,7 @@ import random
 import logging
 import subprocess
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
 
@@ -39,7 +39,7 @@ class SpotCheckProber:
         db = database.SessionLocal()
         try:
             # Get nodes that have been reporting as healthy recently
-            recent_time = datetime.utcnow() - timedelta(minutes=5)
+            recent_time = datetime.now(timezone.utc) - timedelta(minutes=5)
             
             healthy_nodes = db.query(models.Node).join(models.ProbeResult).filter(
                 and_(
@@ -68,7 +68,7 @@ class SpotCheckProber:
                 probe_type="spot_check",
                 success=success,
                 error_message=error_message,
-                probe_timestamp=datetime.utcnow()
+                probe_timestamp=datetime.now(timezone.utc)
             )
             db.add(probe_result)
             
@@ -165,7 +165,7 @@ class SpotCheckProber:
         db = database.SessionLocal()
         try:
             # Flag nodes that haven't sent heartbeat in last 5 minutes
-            cutoff_time = datetime.utcnow() - timedelta(minutes=5)
+            cutoff_time = datetime.now(timezone.utc) - timedelta(minutes=5)
             
             inactive_nodes = db.query(models.Node).filter(
                 and_(

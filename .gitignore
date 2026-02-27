@@ -134,3 +134,11 @@ advisor_outputs/
 
 # Dependencies
 rtmp_relay/ 
+
+# IDE / Agent config
+.kiro/
+.vscode/
+
+# CDK
+infrastructure/node_modules/
+infrastructure/cdk.out/

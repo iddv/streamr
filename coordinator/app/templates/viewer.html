@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamrP2P — Watch</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0d0d0d; color: #fff; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
+        .player-wrap { width: 100%; max-width: 960px; margin-top: 24px; position: relative; background: #000; border-radius: 10px; overflow: hidden; }
+        video { width: 100%; display: block; background: #000; }
+        .status-bar { display: flex; justify-content: space-between; align-items: center; padding: 8px 16px; background: rgba(0,0,0,.7); font-size: .8em; }
+        .status-bar .source { display: flex; align-items: center; gap: 6px; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+        .dot-p2p { background: #00b894; }
+        .dot-srs { background: #fdcb6e; }
+        .dot-off { background: #d63031; }
+        .title-bar { width: 100%; max-width: 960px; padding: 16px 0 8px; display: flex; justify-content: space-between; align-items: center; }
+        .title-bar h1 { font-size: 1.2em; font-weight: 600; }
+        #error-msg { color: #d63031; text-align: center; margin-top: 16px; font-size: .9em; }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js"></script>
+</head>
+<body>
+    <div class="title-bar">
+        <h1 id="stream-title">Loading stream…</h1>
+    </div>
+    <div class="player-wrap">
+        <video id="video" controls autoplay playsinline aria-label="Live stream video player"></video>
+        <div class="status-bar">
+            <div class="source">
+                <span class="dot dot-off" id="source-dot"></span>
+                <span id="source-label">Connecting…</span>
+            </div>
+            <span id="stream-status">—</span>
+        </div>
+    </div>
+    <div id="error-msg"></div>
+
+    <script>
+        const streamId = window.location.pathname.split('/').filter(Boolean).pop();
+        const video = document.getElementById('video');
+        const dot = document.getElementById('source-dot');
+        const sourceLabel = document.getElementById('source-label');
+        const statusEl = document.getElementById('stream-status');
+        const errorEl = document.getElementById('error-msg');
+        let hls = null;
+        let currentSourceType = null;
+
+        document.getElementById('stream-title').textContent = 'Stream: ' + streamId;
+
+        function setSource(type) {
+            currentSourceType = type;
+            if (type === 'friend_node') {
+                dot.className = 'dot dot-p2p';
+                sourceLabel.textContent = 'P2P (Friend Node)';
+            } else if (type === 'srs') {
+                dot.className = 'dot dot-srs';
+                sourceLabel.textContent = 'Direct (SRS)';
+            } else {
+                dot.className = 'dot dot-off';
+                sourceLabel.textContent = 'Offline';
+            }
+        }
+
+        async function loadStream() {
+            errorEl.textContent = '';
+            try {
+                const res = await fetch('/api/v1/watch/' + streamId);
+                if (!res.ok) throw new Error('Stream not available');
+                const data = await res.json();
+
+                setSource(data.source_type);
+                statusEl.textContent = data.node_id ? 'via ' + data.node_id.substring(0, 8) + '…' : 'direct';
+
+                if (Hls.isSupported()) {
+                    if (hls) hls.destroy();
+                    hls = new Hls({ enableWorker: true, lowLatencyMode: true });
+                    hls.loadSource(data.source_url);
+                    hls.attachMedia(video);
+
+                    hls.on(Hls.Events.MANIFEST_PARSED, () => { video.play().catch(() => {}); });
+
+                    hls.on(Hls.Events.ERROR, (event, errData) => {
+                        if (errData.fatal) {
+                            statusEl.textContent = 'Reconnecting…';
+                            setSource(null);
+                            setTimeout(loadStream, 3000);
+                        }
+                    });
+                } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                    // Safari native HLS
+                    video.src = data.source_url;
+                    video.addEventListener('loadedmetadata', () => { video.play().catch(() => {}); });
+                } else {
+                    errorEl.textContent = 'Your browser does not support HLS playback.';
+                }
+            } catch (err) {
+                setSource(null);
+                statusEl.textContent = 'Offline';
+                errorEl.textContent = err.message + ' — retrying in 5s…';
+                setTimeout(loadStream, 5000);
+            }
+        }
+
+        loadStream();
+    </script>
+</body>
+</html>

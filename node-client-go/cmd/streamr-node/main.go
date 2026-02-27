@@ -1,11 +1,22 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
-	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/sirupsen/logrus"
+
+	"github.com/iddv/streamr/node-client-go/internal/bandwidth"
+	"github.com/iddv/streamr/node-client-go/internal/config"
+	"github.com/iddv/streamr/node-client-go/internal/coordinator"
+	"github.com/iddv/streamr/node-client-go/internal/hls"
+	"github.com/iddv/streamr/node-client-go/internal/logging"
+	"github.com/iddv/streamr/node-client-go/internal/mesh"
 )
 
 var (
@@ -14,12 +25,9 @@ var (
 )
 
 func main() {
-	var (
-		coordinatorURL = flag.String("coordinator", "http://streamr-p2p-beta-alb-1130353833.eu-west-1.elb.amazonaws.com", "Coordinator URL")
-		showHelp       = flag.Bool("help", false, "Show help message")
-		showVer        = flag.Bool("version", false, "Show version information")
-		debug          = flag.Bool("debug", false, "Enable debug logging")
-	)
+	// Handle -version and -help before config loading
+	showHelp := flag.Bool("help", false, "Show help message")
+	showVer := flag.Bool("version", false, "Show version information")
 	flag.Parse()
 
 	if *showHelp {
@@ -32,47 +40,139 @@ func main() {
 		return
 	}
 
-	// Setup logging
-	logrus.SetFormatter(&logrus.TextFormatter{
-		FullTimestamp: true,
-	})
-	if *debug {
-		logrus.SetLevel(logrus.DebugLevel)
+	// 1. Load config (task 3.1)
+	cfg, err := config.Load()
+	if err != nil {
+		logrus.WithError(err).Fatal("Failed to load configuration")
 	}
 
-	logrus.WithFields(logrus.Fields{
+	// 2. Setup structured logging (task 3.9)
+	logging.SetupLogger(cfg.LogLevel)
+
+	// Generate a node ID from node name or hostname
+	nodeID := cfg.NodeName
+	if nodeID == "" {
+		hostname, _ := os.Hostname()
+		nodeID = hostname
+	}
+
+	log := logging.NewLogger(nodeID, "")
+
+	log.WithFields(logrus.Fields{
 		"version":         version,
 		"commit":          commit,
-		"coordinator_url": *coordinatorURL,
+		"coordinator_url": cfg.CoordinatorURL,
+		"operation":       "startup",
 	}).Info("Starting StreamrP2P Node Client")
 
-	// Simple health check
-	if err := testCoordinatorConnection(*coordinatorURL); err != nil {
-		logrus.WithError(err).Fatal("Failed to connect to coordinator")
+	// Validate required config
+	if cfg.StreamKey == "" {
+		log.Fatal("stream_key is required. Set it in ~/.streamr/config.yaml or via -stream-key flag")
 	}
-	logrus.Info("Successfully connected to coordinator")
 
-	logrus.Info("✅ StreamrP2P Go Node Client - Foundation Complete!")
-	logrus.Info("🚧 RTMP server integration coming next...")
-	logrus.Info("Press Ctrl+C to exit")
-
-	// Simple wait
-	fmt.Println("Node client ready! (Press Enter to exit)")
-	fmt.Scanln()
-}
-
-func testCoordinatorConnection(baseURL string) error {
-	resp, err := http.Get(baseURL + "/health")
+	// 3. Register with coordinator (task 3.2)
+	client := coordinator.NewClient(cfg.CoordinatorURL, nodeID, cfg.HeartbeatInterval, log)
+	regResp, err := client.Register(nodeID, cfg.StreamKey)
 	if err != nil {
-		return fmt.Errorf("health check request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("health check failed with status %d", resp.StatusCode)
+		log.WithField("operation", "register").WithError(err).Fatal("Failed to register with coordinator")
 	}
 
-	return nil
+	// Update logger with stream_id now that we have it
+	log = logging.NewLogger(nodeID, regResp.StreamID)
+	log.WithField("operation", "startup").Info("Registered with coordinator successfully")
+
+	// Set stats URL for heartbeats
+	statsURL := fmt.Sprintf("http://localhost:%d", cfg.ServePort)
+	client.SetStatsURL(statsURL)
+
+	// Join VPN mesh if Headscale auth key was provided (task 4.5)
+	var meshNode *mesh.MeshNode
+	if regResp.HeadscaleAuthKey != "" {
+		meshNode = mesh.NewMeshNode(log)
+		meshCtx, meshCancel := context.WithTimeout(context.Background(), 60*time.Second)
+		err := meshNode.Join(meshCtx, regResp.HeadscaleAuthKey, nodeID, "")
+		meshCancel()
+		if err != nil {
+			log.WithField("operation", "mesh_join").WithError(err).Warn("Failed to join VPN mesh — continuing without mesh")
+		} else {
+			vpnIP := meshNode.VPNIP()
+			client.SetVPNIP(vpnIP)
+			log.WithFields(logrus.Fields{
+				"operation": "mesh_join",
+				"vpn_ip":    vpnIP,
+			}).Info("VPN mesh joined, IP reported in heartbeats")
+		}
+	} else {
+		log.WithField("operation", "startup").Info("No Headscale auth key — skipping VPN mesh")
+	}
+
+	// Create shared segment buffer
+	buffer := hls.NewSegmentBuffer(cfg.MaxBufferSegments)
+
+	// Create context for graceful shutdown
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// 4. Start heartbeat loop in goroutine (task 3.3)
+	go client.HeartbeatLoop(ctx)
+
+	// 5. Start HLS fetcher in goroutine (task 3.5)
+	srsURL := cfg.CoordinatorURL // SRS URL defaults to coordinator for now
+	fetcher := hls.NewFetcher(srsURL, regResp.StreamID, buffer, log)
+	go fetcher.Start(ctx)
+
+	// 6. Start HLS server in goroutine (task 3.6 + 3.8)
+	server := hls.NewServer(buffer, cfg.ServePort, regResp.StreamID, cfg.MaxViewers, log)
+	go server.Start(ctx)
+
+	// 7. Start bandwidth reporter in goroutine (task 3.7)
+	reporter := bandwidth.NewReporter(
+		client,
+		regResp.StreamID,
+		fetcher.BytesFromSRS,
+		server.BytesToViewers,
+		log,
+	)
+	go reporter.Start(ctx)
+
+	log.WithFields(logrus.Fields{
+		"operation":  "startup",
+		"hls_port":   cfg.ServePort,
+		"stream_id":  regResp.StreamID,
+		"max_viewers": cfg.MaxViewers,
+	}).Info("All services started")
+
+	// 8. Wait for SIGINT/SIGTERM (task 3.4)
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	sig := <-sigCh
+
+	log.WithFields(logrus.Fields{
+		"operation": "shutdown",
+		"signal":    sig.String(),
+	}).Info("Shutdown signal received")
+
+	// 9. Cancel context, deregister, drain connections
+	cancel()
+
+	// Close VPN mesh if connected
+	if meshNode != nil {
+		if err := meshNode.Close(); err != nil {
+			log.WithField("operation", "shutdown").WithError(err).Warn("Failed to close VPN mesh")
+		}
+	}
+
+	// Deregister from coordinator
+	if err := client.Deregister(); err != nil {
+		log.WithField("operation", "shutdown").WithError(err).Warn("Failed to deregister from coordinator")
+	}
+
+	// Give 5 seconds for connections to drain
+	drainCtx, drainCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer drainCancel()
+
+	<-drainCtx.Done()
+
+	log.WithField("operation", "shutdown").Info("StreamrP2P Node Client stopped")
 }
 
 func printHelp() {
@@ -83,17 +183,22 @@ func printHelp() {
 	fmt.Println()
 	fmt.Println("Options:")
 	fmt.Println("  -coordinator string  URL of the coordinator service")
-	fmt.Println("  -debug              Enable debug logging")
-	fmt.Println("  -help               Show this help message")
-	fmt.Println("  -version            Show version information")
+	fmt.Println("  -name string         Node display name")
+	fmt.Println("  -stream-key string   Stream key for registration")
+	fmt.Println("  -log-level string    Log level (debug, info, warn, error)")
+	fmt.Println("  -heartbeat int       Heartbeat interval in seconds")
+	fmt.Println("  -port int            HLS serve port")
+	fmt.Println("  -max-segments int    Max buffer segments")
+	fmt.Println("  -max-viewers int     Max concurrent viewers")
+	fmt.Println("  -help                Show this help message")
+	fmt.Println("  -version             Show version information")
+	fmt.Println()
+	fmt.Println("Configuration:")
+	fmt.Println("  Config file: ~/.streamr/config.yaml")
+	fmt.Println("  Precedence: CLI flags > config file > defaults")
 	fmt.Println()
 	fmt.Println("Examples:")
-	fmt.Println("  streamr-node")
-	fmt.Println("  streamr-node -debug")
-	fmt.Println("  streamr-node -coordinator http://localhost:8000")
-	fmt.Println()
-	fmt.Println("🎯 Goal: 24x better friend experience (5% → 85% success rate)")
-	fmt.Println("📦 Single binary - no Docker, no Python, no setup complexity")
-	fmt.Println()
-	fmt.Println("For more information, visit: https://github.com/iddv/streamr")
+	fmt.Println("  streamr-node -stream-key sk_abc123")
+	fmt.Println("  streamr-node -coordinator http://localhost:8000 -stream-key sk_abc123")
+	fmt.Println("  streamr-node -log-level debug -port 9090")
 }

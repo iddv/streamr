@@ -1,0 +1,34 @@
+# Headscale configuration for StreamrP2P VPN mesh
+# See https://headscale.net/ref/configuration/ for full reference
+
+server_url: http://headscale:8080
+listen_addr: 0.0.0.0:8080
+grpc_listen_addr: 0.0.0.0:50443
+
+# Use noise protocol (modern Tailscale)
+noise:
+  private_key_path: /var/lib/headscale/noise_private.key
+
+# IP prefixes for the VPN mesh
+prefixes:
+  v4: 100.64.0.0/10
+  v6: fd7a:115c:a1e0::/48
+
+# Database configured via environment variables (see docker-compose.yml)
+
+# DERP (relay) configuration
+derp:
+  server:
+    enabled: true
+    region_id: 999
+    region_code: streamr
+    region_name: StreamrP2P
+    stun_listen_addr: 0.0.0.0:3478
+
+# Disable automatic updates check
+disable_check_updates: true
+
+# DNS configuration
+dns:
+  magic_dns: false
+  base_domain: streamr.mesh

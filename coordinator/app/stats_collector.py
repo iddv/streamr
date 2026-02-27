@@ -2,7 +2,7 @@ import asyncio
 import httpx
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
 from typing import Dict, Any
 
@@ -63,7 +63,7 @@ class StatsCollector:
                     probe_type="stats_poll",
                     success=success,
                     response_data=json.dumps(stats_data),
-                    probe_timestamp=datetime.utcnow()
+                    probe_timestamp=datetime.now(timezone.utc)
                 )
                 
                 if success:
@@ -79,7 +79,7 @@ class StatsCollector:
                     probe_type="stats_poll",
                     success=False,
                     error_message=f"HTTP {response.status_code}: {response.text}",
-                    probe_timestamp=datetime.utcnow()
+                    probe_timestamp=datetime.now(timezone.utc)
                 )
                 logger.warning(f"✗ Node {node.node_id} stats collection failed: HTTP {response.status_code}")
                 
@@ -91,7 +91,7 @@ class StatsCollector:
                 probe_type="stats_poll",
                 success=False,
                 error_message=str(e),
-                probe_timestamp=datetime.utcnow()
+                probe_timestamp=datetime.now(timezone.utc)
             )
             logger.error(f"✗ Node {node.node_id} stats collection error: {e}")
         
@@ -133,7 +133,7 @@ class StatsCollector:
         """Clean up old probe results to prevent database bloat"""
         db = database.SessionLocal()
         try:
-            cutoff_date = datetime.utcnow() - timedelta(days=days_to_keep)
+            cutoff_date = datetime.now(timezone.utc) - timedelta(days=days_to_keep)
             deleted = db.query(models.ProbeResult).filter(
                 models.ProbeResult.probe_timestamp < cutoff_date
             ).delete()

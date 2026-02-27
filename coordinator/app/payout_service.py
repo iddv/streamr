@@ -1,272 +1,260 @@
+"""
+Payout service — contribution-weighted distribution from verified bandwidth.
+Task 5.5 — Req 15.1–15.6, Design §18
+
+Calculates payouts from *verified* bandwidth reports, applies trust-score
+penalties, credits UserAccount balances, and logs every cycle to payout_log /
+payout_log_entries.
+"""
+
 import logging
 import time
-from datetime import datetime, timedelta
-from sqlalchemy.orm import Session
-from sqlalchemy import and_, func, case
+from datetime import datetime, timedelta, timezone
+from decimal import Decimal, ROUND_DOWN
 from typing import Dict, List
 
-from . import models, database
+from sqlalchemy import func, and_
+from sqlalchemy.orm import Session
 
-logging.basicConfig(level=logging.INFO)
+from . import models
+from .economic_config import economic_config
+
 logger = logging.getLogger(__name__)
 
-# Performance monitoring decorator
-def monitor_query_performance(func):
-    def wrapper(*args, **kwargs):
-        start_time = time.time()
-        result = func(*args, **kwargs)
-        duration = time.time() - start_time
-        logger.info(f"Query {func.__name__} took {duration:.3f}s")
-        return result
-    return wrapper
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+TRUST_PENALTY_THRESHOLD = Decimal("0.5")
+TRUST_PENALTY_MULTIPLIER = Decimal("0.5")  # 50% payout when trust < 0.5
+
+
+def _gb_from_bytes(b: int) -> Decimal:
+    return (Decimal(str(b)) / Decimal(str(1024 ** 3))).quantize(Decimal("0.0001"))
+
+
+# ---------------------------------------------------------------------------
+# Core payout cycle
+# ---------------------------------------------------------------------------
 
 class PayoutService:
-    def __init__(self):
-        # Configurable penalty factor (0.5 = 50% penalty per failure)
-        self.PENALTY_FACTOR = 0.5
-    
-    @monitor_query_performance
-    def calculate_payouts(self, hours_back: int = 1) -> Dict[str, Dict]:
+    """Hourly payout cycle driven by verified bandwidth reports."""
+
+    def run_payout_cycle(self, db: Session) -> dict:
         """
-        Calculate payouts for the last N hours based on probe results.
-        Uses contribution-weighted model with graduated penalties.
-        OPTIMIZED: Single query instead of N+1 queries per stream.
+        Execute one payout cycle:
+        1. Gather verified-but-unpaid bandwidth reports from the last hour.
+        2. Aggregate bytes per node.
+        3. Calculate earnings using EconomicConfig rate, minus platform margin.
+        4. Apply trust-score penalty where trust < 0.5.
+        5. Credit UserAccount.balance_usd.
+        6. Log to payout_log + payout_log_entries.
+        7. Mark processed reports (set trust_score on ledger rows).
+
+        Returns summary dict.
         """
-        db = database.SessionLocal()
-        try:
-            cutoff_time = datetime.utcnow() - timedelta(hours=hours_back)
-            
-            # Get all operational streams (updated for Stream Lifecycle System)
-            operational_statuses = ["READY", "TESTING", "LIVE", "OFFLINE"]
-            active_streams = db.query(models.Stream).filter(
-                models.Stream.status.in_(operational_statuses)
-            ).all()
-            
-            payout_data = {}
-            
-            for stream in active_streams:
-                logger.info(f"Calculating payouts for stream: {stream.stream_id}")
-                
-                # OPTIMIZED: Single query to get all node stats for this stream
-                # This replaces the N+1 query pattern with one efficient query
-                node_stats = db.query(
-                    models.ProbeResult.node_id,
-                    func.count(
-                        case([(models.ProbeResult.probe_type == 'stats_poll', 1)], else_=None)
-                    ).label('total_polls'),
-                    func.count(
-                        case([
-                            (and_(
-                                models.ProbeResult.probe_type == 'stats_poll',
-                                models.ProbeResult.success == True
-                            ), 1)
-                        ], else_=None)
-                    ).label('successful_polls'),
-                    func.count(
-                        case([
-                            (and_(
-                                models.ProbeResult.probe_type == 'spot_check',
-                                models.ProbeResult.success == False
-                            ), 1)
-                        ], else_=None)
-                    ).label('failed_spot_checks')
-                ).filter(
-                    models.ProbeResult.stream_id == stream.stream_id,
-                    models.ProbeResult.probe_timestamp > cutoff_time
-                ).group_by(models.ProbeResult.node_id).all()
-                
-                if not node_stats:
-                    logger.info(f"No participating node stats for stream {stream.stream_id}")
-                    continue
-                
-                # Calculate total successful probes across all nodes (for contribution weighting)
-                total_successful_probes = sum(stats.successful_polls for stats in node_stats)
-                
-                if total_successful_probes == 0:
-                    logger.info(f"No successful probes for stream {stream.stream_id}")
-                    continue
-                
-                node_payouts = {}
-                total_pool = stream.token_balance
-                
-                for stats in node_stats:
-                    # Contribution-weighted payout model
-                    contribution_percentage = stats.successful_polls / total_successful_probes
-                    base_payout = total_pool * contribution_percentage
-                    
-                    # Graduated penalty model (more fair than zero-tolerance)
-                    penalty_multiplier = (1 - self.PENALTY_FACTOR) ** stats.failed_spot_checks
-                    final_payout = base_payout * penalty_multiplier
-                    
-                    # Calculate uptime percentage for display
-                    uptime_percentage = (stats.successful_polls / stats.total_polls) if stats.total_polls > 0 else 0
-                    
-                    node_payouts[stats.node_id] = {
-                        "base_payout": base_payout,
-                        "final_payout": final_payout,
-                        "contribution_percentage": contribution_percentage,
-                        "uptime_percentage": uptime_percentage,
-                        "total_polls": stats.total_polls,
-                        "successful_polls": stats.successful_polls,
-                        "failed_spot_checks": stats.failed_spot_checks,
-                        "penalty_multiplier": penalty_multiplier,
-                        "is_flagged": stats.failed_spot_checks > 0,
-                        "penalty_reason": f"{stats.failed_spot_checks} failed spot checks" if stats.failed_spot_checks > 0 else None
-                    }
-                    
-                    logger.info(f"Node {stats.node_id}: {contribution_percentage:.1%} contribution, "
-                              f"{uptime_percentage:.1%} uptime, {final_payout:.2f} tokens" + 
-                              (f" (penalty: {penalty_multiplier:.2f})" if stats.failed_spot_checks > 0 else ""))
-                
-                payout_data[stream.stream_id] = {
-                    "stream_info": {
-                        "stream_id": stream.stream_id,
-                        "sponsor": stream.sponsor_address,
-                        "total_pool": total_pool,
-                        "total_successful_probes": total_successful_probes,
-                        "node_count": len(node_stats),
-                        "calculation_period": f"Last {hours_back} hour(s)",
-                        "payout_model": "contribution-weighted"
-                    },
-                    "node_payouts": node_payouts
-                }
-            
-            return payout_data
-            
-        finally:
-            db.close()
-    
-    @monitor_query_performance 
-    def get_node_earnings_summary(self, node_id: str, days_back: int = 7) -> Dict:
-        """Get earnings summary for a specific node - OPTIMIZED VERSION"""
-        db = database.SessionLocal()
-        try:
-            cutoff_time = datetime.utcnow() - timedelta(days=days_back)
-            
-            # OPTIMIZED: Single query to get all node performance across streams
-            stream_stats = db.query(
-                models.ProbeResult.stream_id,
-                func.count(
-                    case([(models.ProbeResult.probe_type == 'stats_poll', 1)], else_=None)
-                ).label('total_polls'),
-                func.count(
-                    case([
-                        (and_(
-                            models.ProbeResult.probe_type == 'stats_poll',
-                            models.ProbeResult.success == True
-                        ), 1)
-                    ], else_=None)
-                ).label('successful_polls'),
-                func.count(
-                    case([
-                        (and_(
-                            models.ProbeResult.probe_type == 'spot_check',
-                            models.ProbeResult.success == False
-                        ), 1)
-                    ], else_=None)
-                ).label('failed_spot_checks')
-            ).filter(
-                models.ProbeResult.node_id == node_id,
-                models.ProbeResult.probe_timestamp > cutoff_time
-            ).group_by(models.ProbeResult.stream_id).all()
-            
-            total_earnings = 0
-            stream_details = []
-            
-            for stats in stream_stats:
-                # Get stream info
-                stream = db.query(models.Stream).filter(
-                    models.Stream.stream_id == stats.stream_id
-                ).first()
-                
-                if not stream:
-                    continue
-                
-                uptime = (stats.successful_polls / stats.total_polls) if stats.total_polls > 0 else 0
-                
-                # Simplified earnings calculation for summary
-                penalty_multiplier = (1 - self.PENALTY_FACTOR) ** stats.failed_spot_checks
-                estimated_earnings = (stream.token_balance * 0.1) * uptime * penalty_multiplier
-                total_earnings += estimated_earnings
-                
-                stream_details.append({
-                    "stream_id": stats.stream_id,
-                    "uptime_percentage": uptime,
-                    "estimated_earnings": estimated_earnings,
-                    "total_polls": stats.total_polls,
-                    "successful_polls": stats.successful_polls,
-                    "failed_spot_checks": stats.failed_spot_checks,
-                    "penalty_multiplier": penalty_multiplier
-                })
-            
-            return {
-                "node_id": node_id,
-                "period": f"Last {days_back} days",
-                "total_estimated_earnings": total_earnings,
-                "streams_participated": len(stream_stats),
-                "stream_details": stream_details,
-                "payout_model": "contribution-weighted"
-            }
-            
-        finally:
-            db.close()
-    
-    def get_leaderboard(self, limit: int = 10) -> List[Dict]:
-        """Get top performing nodes by estimated earnings"""
-        db = database.SessionLocal()
-        try:
-            # Get nodes with their performance metrics
-            cutoff_time = datetime.utcnow() - timedelta(days=7)
-            
-            # This is a simplified leaderboard - in production you'd want more sophisticated metrics
-            node_stats = db.query(
-                models.Node.node_id,
-                func.count(models.ProbeResult.id).label('total_probes'),
-                func.sum(models.ProbeResult.success.cast(db.bind.dialect.INTEGER)).label('successful_probes')
-            ).join(models.ProbeResult).filter(
-                and_(
-                    models.ProbeResult.probe_type == "stats_poll",
-                    models.ProbeResult.probe_timestamp > cutoff_time
+        now = datetime.now(timezone.utc)
+        cycle_start = now - timedelta(hours=1)
+
+        # 1. Verified reports not yet paid (trust_score IS NULL on ledger = not yet processed by payout)
+        reports = (
+            db.query(models.BandwidthLedger)
+            .filter(
+                models.BandwidthLedger.is_verified == True,  # noqa: E712
+                models.BandwidthLedger.trust_score.is_(None),
+                models.BandwidthLedger.report_timestamp >= cycle_start,
+            )
+            .all()
+        )
+
+        if not reports:
+            logger.info("Payout cycle: no verified unpaid reports")
+            return {"nodes_paid": 0, "total_usd": "0.00", "penalties": 0}
+
+        # 2. Aggregate bytes per node
+        node_bytes: Dict[str, int] = {}
+        node_user: Dict[str, str] = {}  # node_id → user_id (from ledger's reporting_node)
+        for r in reports:
+            node_bytes[r.reporting_node_id] = node_bytes.get(r.reporting_node_id, 0) + r.bytes_transferred
+            # Resolve user_id from Node table (first match)
+            if r.reporting_node_id not in node_user:
+                node = (
+                    db.query(models.Node)
+                    .filter(models.Node.node_id == r.reporting_node_id)
+                    .first()
                 )
-            ).group_by(models.Node.node_id).order_by(
-                func.sum(models.ProbeResult.success.cast(db.bind.dialect.INTEGER)).desc()
-            ).limit(limit).all()
-            
-            leaderboard = []
-            for node_id, total_probes, successful_probes in node_stats:
-                uptime = (successful_probes / total_probes) if total_probes > 0 else 0
-                
-                leaderboard.append({
+                node_user[r.reporting_node_id] = node.user_id if node else r.reporting_node_id
+
+        total_bytes = sum(node_bytes.values())
+        if total_bytes == 0:
+            logger.info("Payout cycle: total verified bytes = 0")
+            return {"nodes_paid": 0, "total_usd": "0.00", "penalties": 0}
+
+        # 3-4. Calculate per-node earnings
+        rate = economic_config.rate_per_gb
+        margin = economic_config.platform_margin
+        min_threshold = economic_config.min_payout_threshold
+        net_rate = rate * (Decimal("1") - margin)  # after platform cut
+
+        entries: list[dict] = []
+        total_amount = Decimal("0")
+        penalties_applied = 0
+
+        for node_id, nbytes in node_bytes.items():
+            gb = _gb_from_bytes(nbytes)
+            earnings = (gb * net_rate).quantize(Decimal("0.0001"), rounding=ROUND_DOWN)
+
+            # Look up trust score
+            user_id = node_user.get(node_id, node_id)
+            account = db.query(models.UserAccount).filter(models.UserAccount.user_id == user_id).first()
+            trust = Decimal(str(account.trust_score)) if account else Decimal("0.75")
+
+            penalty = False
+            if trust < TRUST_PENALTY_THRESHOLD:
+                earnings = (earnings * TRUST_PENALTY_MULTIPLIER).quantize(Decimal("0.0001"), rounding=ROUND_DOWN)
+                penalty = True
+                penalties_applied += 1
+
+            if earnings < min_threshold:
+                # Below minimum — still log but don't credit
+                entries.append({
                     "node_id": node_id,
-                    "uptime_percentage": uptime,
-                    "total_probes": total_probes,
-                    "successful_probes": successful_probes,
-                    "estimated_score": successful_probes  # Simple scoring
+                    "user_id": user_id,
+                    "bytes": nbytes,
+                    "earnings": Decimal("0"),
+                    "trust": trust,
+                    "penalty": penalty,
                 })
-            
-            return leaderboard
-            
-        finally:
-            db.close()
+                continue
 
-# Utility function for manual payout calculation
-def calculate_and_display_payouts(hours_back: int = 1):
-    """Utility function to calculate and display payouts"""
-    payout_service = PayoutService()
-    payouts = payout_service.calculate_payouts(hours_back)
-    
-    print(f"\n=== PAYOUT CALCULATION (Last {hours_back} hour(s)) ===")
-    
-    for stream_id, stream_data in payouts.items():
-        print(f"\nStream: {stream_id}")
-        print(f"Sponsor: {stream_data['stream_info']['sponsor']}")
-        print(f"Total Pool: {stream_data['stream_info']['total_pool']} tokens")
-        print("Node Payouts:")
-        
-        for node_id, payout_info in stream_data['node_payouts'].items():
-            status = "🚨 FLAGGED" if payout_info['is_flagged'] else "✓"
-            print(f"  {node_id}: {payout_info['final_payout']:.2f} tokens "
-                  f"({payout_info['uptime_percentage']:.1%} uptime) {status}")
+            # 5. Credit balance
+            if not account:
+                account = models.UserAccount(
+                    user_id=user_id,
+                    balance_usd=Decimal("0"),
+                    total_gb_relayed=Decimal("0"),
+                    earnings_last_30d=Decimal("0"),
+                    trust_score=trust,
+                    flags=[],
+                    last_updated_at=now,
+                )
+                db.add(account)
+                db.flush()
 
-if __name__ == "__main__":
-    calculate_and_display_payouts() 
+            account.balance_usd += earnings
+            account.total_gb_relayed += gb
+            account.earnings_last_30d += earnings
+            account.last_updated_at = now
+            total_amount += earnings
+
+            entries.append({
+                "node_id": node_id,
+                "user_id": user_id,
+                "bytes": nbytes,
+                "earnings": earnings,
+                "trust": trust,
+                "penalty": penalty,
+            })
+
+        # 6. Log cycle
+        payout_log = models.PayoutLog(
+            cycle_timestamp=now,
+            total_amount_usd=total_amount,
+            total_bytes_processed=total_bytes,
+            nodes_paid=len([e for e in entries if e["earnings"] > 0]),
+            penalties_applied=penalties_applied,
+            notes=f"Rate {rate}/GB, margin {margin}, {len(reports)} reports processed",
+        )
+        db.add(payout_log)
+        db.flush()  # get payout_log.id
+
+        for e in entries:
+            db.add(models.PayoutLogEntry(
+                payout_log_id=payout_log.id,
+                node_id=e["node_id"],
+                user_id=e["user_id"],
+                bytes_relayed=e["bytes"],
+                earnings_usd=e["earnings"],
+                trust_score=e["trust"],
+                penalty_applied=e["penalty"],
+                timestamp=now,
+            ))
+
+        # 7. Stamp processed reports so they aren't picked up again
+        for r in reports:
+            user_id = node_user.get(r.reporting_node_id, r.reporting_node_id)
+            account = db.query(models.UserAccount).filter(models.UserAccount.user_id == user_id).first()
+            r.trust_score = Decimal(str(account.trust_score)) if account else Decimal("0.75")
+
+        db.commit()
+
+        summary = {
+            "nodes_paid": payout_log.nodes_paid,
+            "total_usd": str(total_amount),
+            "penalties": penalties_applied,
+            "reports_processed": len(reports),
+        }
+        logger.info("Payout cycle complete: %s", summary)
+        return summary
+
+    # ------------------------------------------------------------------
+    # Legacy helpers kept for backward-compat with existing endpoints
+    # ------------------------------------------------------------------
+
+    def calculate_payouts(self, db: Session, hours_back: int = 1) -> Dict:
+        """Legacy payout preview (read-only, does not credit accounts)."""
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=hours_back)
+        logs = (
+            db.query(models.PayoutLog)
+            .filter(models.PayoutLog.cycle_timestamp >= cutoff)
+            .all()
+        )
+        result = {}
+        for log in logs:
+            result[str(log.id)] = {
+                "cycle_timestamp": log.cycle_timestamp.isoformat(),
+                "total_amount_usd": str(log.total_amount_usd),
+                "total_bytes_processed": log.total_bytes_processed,
+                "nodes_paid": log.nodes_paid,
+                "penalties_applied": log.penalties_applied,
+            }
+        return result
+
+    def get_node_earnings_summary(self, db: Session, node_id: str, days_back: int = 7) -> Dict:
+        """Return earnings summary for a node over the given period."""
+        cutoff = datetime.now(timezone.utc) - timedelta(days=days_back)
+        entries = (
+            db.query(models.PayoutLogEntry)
+            .filter(
+                models.PayoutLogEntry.node_id == node_id,
+                models.PayoutLogEntry.timestamp >= cutoff,
+            )
+            .order_by(models.PayoutLogEntry.timestamp.desc())
+            .all()
+        )
+        total = sum(e.earnings_usd for e in entries)
+        return {
+            "node_id": node_id,
+            "period": f"Last {days_back} days",
+            "total_estimated_earnings": float(total),
+            "entries": len(entries),
+        }
+
+    def get_leaderboard(self, db: Session, limit: int = 10) -> List[Dict]:
+        """Top nodes by 30-day earnings."""
+        accounts = (
+            db.query(models.UserAccount)
+            .filter(models.UserAccount.earnings_last_30d > 0)
+            .order_by(models.UserAccount.earnings_last_30d.desc())
+            .limit(limit)
+            .all()
+        )
+        return [
+            {
+                "node_id": a.user_id[:8] + "...",
+                "earnings_30d": float(a.earnings_last_30d),
+                "gb_relayed": float(a.total_gb_relayed),
+                "trust_score": float(a.trust_score),
+            }
+            for a in accounts
+        ]

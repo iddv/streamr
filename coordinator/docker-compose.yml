@@ -7,9 +7,14 @@ services:
       - "8000:8000"
     environment:
       - DATABASE_URL=postgresql://streamr:streamr@db:5432/streamr_poc
+      - REDIS_URL=redis://redis:6379
+      - HEADSCALE_URL=http://headscale:8080
+      - HEADSCALE_API_KEY=${HEADSCALE_API_KEY:-}
+      - TAILSCALE_AUTH_KEY=${TAILSCALE_AUTH_KEY:-}
     depends_on:
       - db
       - redis
+      - headscale
     volumes:
       - ./app:/app/app
     restart: unless-stopped
@@ -18,6 +23,7 @@ services:
     build: .
     environment:
       - DATABASE_URL=postgresql://streamr:streamr@db:5432/streamr_poc
+      - REDIS_URL=redis://redis:6379
     depends_on:
       - db
       - redis
@@ -36,6 +42,7 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./init-headscale-schema.sql:/docker-entrypoint-initdb.d/01-headscale-schema.sql
     restart: unless-stopped
 
   redis:
@@ -44,5 +51,55 @@ services:
       - "6380:6379"
     restart: unless-stopped
 
+  headscale:
+    image: headscale/headscale:latest
+    command: serve
+    ports:
+      - "443:443"
+      - "8080:8080"
+    environment:
+      - HEADSCALE_DATABASE_TYPE=postgres
+      - HEADSCALE_DATABASE_POSTGRES_HOST=db
+      - HEADSCALE_DATABASE_POSTGRES_PORT=5432
+      - HEADSCALE_DATABASE_POSTGRES_NAME=streamr_poc
+      - HEADSCALE_DATABASE_POSTGRES_USER=streamr
+      - HEADSCALE_DATABASE_POSTGRES_PASS=streamr
+      - HEADSCALE_DATABASE_POSTGRES_SSL=false
+    volumes:
+      - headscale_data:/var/lib/headscale
+      - ./headscale-config.yaml:/etc/headscale/config.yaml
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  srs:
+    image: ossrs/srs:5
+    ports:
+      - "1935:1935"
+      - "8081:8080"
+      - "1985:1985"
+    volumes:
+      - ./srs.conf:/usr/local/srs/conf/srs.conf
+    restart: unless-stopped
+
+  tailscaled:
+    image: tailscale/tailscale:latest
+    hostname: coordinator-tailscale
+    environment:
+      - TS_AUTHKEY=${TAILSCALE_AUTH_KEY:-}
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_EXTRA_ARGS=--login-server=http://headscale:8080
+    volumes:
+      - tailscale_data:/var/lib/tailscale
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    network_mode: "service:coordinator"
+    depends_on:
+      - headscale
+    restart: unless-stopped
+
 volumes:
-  postgres_data: 
+  postgres_data:
+  headscale_data:
+  tailscale_data:

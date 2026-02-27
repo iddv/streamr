@@ -6,6 +6,8 @@ import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as ecs from 'aws-cdk-lib/aws-ecs';
 import * as ecr from 'aws-cdk-lib/aws-ecr';
 import * as logs from 'aws-cdk-lib/aws-logs';
+import * as acm from 'aws-cdk-lib/aws-certificatemanager';
+import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
 import { Construct } from 'constructs';
 import { DeploymentContext } from '../config/types';
 import { streamrConfig } from '../config/streamr-config';
@@ -237,6 +239,64 @@ export class ApplicationStack extends cdk.Stack {
       }
     );
 
+    // Headscale VPN Coordination Container (Req 9.1)
+    const headscaleContainer = this.taskDefinition.addContainer('headscale', {
+      image: ecs.ContainerImage.fromRegistry('headscale/headscale:latest'),
+      containerName: 'headscale',
+      command: ['serve'],
+      logging: ecs.LogDriver.awsLogs({
+        streamPrefix: 'headscale',
+        logGroup: logGroup,
+      }),
+      essential: false,
+      environment: {
+        'HEADSCALE_DATABASE_TYPE': 'postgres',
+        'HEADSCALE_DATABASE_POSTGRES_HOST': 'SET_VIA_SECRETS',
+        'HEADSCALE_DATABASE_POSTGRES_PORT': String(streamrConfig.database.port),
+        'HEADSCALE_DATABASE_POSTGRES_NAME': 'streamr',
+        'HEADSCALE_DATABASE_POSTGRES_USER': 'SET_VIA_SECRETS',
+        'HEADSCALE_DATABASE_POSTGRES_PASS': 'SET_VIA_SECRETS',
+        'HEADSCALE_DATABASE_POSTGRES_SSL': 'true',
+      },
+    });
+
+    headscaleContainer.addPortMappings(
+      {
+        containerPort: 443,
+        protocol: ecs.Protocol.TCP,
+        name: 'headscale-https',
+      }
+    );
+
+    // Tailscale sidecar — coordinator joins the VPN mesh (Req 9, Design §12/§14)
+    const tailscaleContainer = this.taskDefinition.addContainer('tailscaled', {
+      image: ecs.ContainerImage.fromRegistry('tailscale/tailscale:latest'),
+      containerName: 'tailscaled',
+      logging: ecs.LogDriver.awsLogs({
+        streamPrefix: 'tailscaled',
+        logGroup: logGroup,
+      }),
+      essential: false,
+      environment: {
+        'TS_STATE_DIR': '/var/lib/tailscale',
+        'TS_EXTRA_ARGS': '--login-server=http://localhost:8080',
+      },
+    });
+
+    // Headscale coordination traffic (port 443)
+    this.serviceSecurityGroup.addIngressRule(
+      ec2.Peer.anyIpv4(),
+      ec2.Port.tcp(443),
+      'Allow Headscale coordination traffic'
+    );
+
+    // Tailscale WireGuard traffic (UDP 41641)
+    this.serviceSecurityGroup.addIngressRule(
+      ec2.Peer.anyIpv4(),
+      ec2.Port.udp(41641),
+      'Allow Tailscale WireGuard traffic'
+    );
+
     // FIXED: Define target AZ for consistent NLB and ECS placement (prevents AZ mismatch)
     // Use the first available AZ that CDK knows about for deterministic single-EIP setup
     const targetAz = vpc.availabilityZones[0]; // Dynamic AZ selection - matches CDK synthesis
@@ -313,12 +373,50 @@ export class ApplicationStack extends cdk.Stack {
       containerPort: 8080,
     }));
 
-    // HTTP Listener for coordinator API (default)
-    this.loadBalancer.addListener('HTTPListener', {
-      port: 80,
-      protocol: elbv2.ApplicationProtocol.HTTP,
-      defaultTargetGroups: [coordinatorTargetGroup],
-    });
+    // ---------------------------------------------------------------------------
+    // HTTPS/TLS — ACM certificate + HTTPS listener + HTTP→HTTPS redirect
+    // ---------------------------------------------------------------------------
+    const domainName = this.node.tryGetContext('domainName') || process.env.DOMAIN_NAME;
+
+    if (domainName) {
+      // DNS-validated ACM certificate for the domain
+      const certificate = new acm.Certificate(this, 'Certificate', {
+        domainName: domainName,
+        subjectAlternativeNames: [`*.${domainName}`],
+        validation: acm.CertificateValidation.fromDns(),
+      });
+
+      // HTTPS Listener (port 443) — primary listener with TLS termination
+      this.loadBalancer.addListener('HTTPSListener', {
+        port: 443,
+        protocol: elbv2.ApplicationProtocol.HTTPS,
+        certificates: [certificate],
+        defaultTargetGroups: [coordinatorTargetGroup],
+      });
+
+      // HTTP Listener (port 80) — redirect to HTTPS
+      this.loadBalancer.addListener('HTTPListener', {
+        port: 80,
+        protocol: elbv2.ApplicationProtocol.HTTP,
+        defaultAction: elbv2.ListenerAction.redirect({
+          protocol: 'HTTPS',
+          port: '443',
+          permanent: true,
+        }),
+      });
+
+      new cdk.CfnOutput(this, 'CertificateArn', {
+        value: certificate.certificateArn,
+        description: 'ACM Certificate ARN for HTTPS',
+      });
+    } else {
+      // Fallback: plain HTTP listener when no domain is configured
+      this.loadBalancer.addListener('HTTPListener', {
+        port: 80,
+        protocol: elbv2.ApplicationProtocol.HTTP,
+        defaultTargetGroups: [coordinatorTargetGroup],
+      });
+    }
 
     // HTTP Listener for SRS streaming
     this.loadBalancer.addListener('SRSListener', {
@@ -328,7 +426,9 @@ export class ApplicationStack extends cdk.Stack {
     });
 
     // Import existing Elastic IP for static RTMP endpoint
-    const elasticIpAllocationId = 'eipalloc-054297e161bb78275'; // Your existing Elastic IP
+    // Parameterized: override via CDK context -c elasticIpAllocationId=eipalloc-xxx
+    const elasticIpAllocationId = this.node.tryGetContext('elasticIpAllocationId') || 'eipalloc-054297e161bb78275';
+    const elasticIpAddress = this.node.tryGetContext('elasticIpAddress') || '52.213.32.59';
 
     // Network Load Balancer for RTMP with static Elastic IP
     // NOTE: Single-AZ deployment for validation phase (only one Elastic IP available)
@@ -413,13 +513,63 @@ export class ApplicationStack extends cdk.Stack {
     });
 
     new cdk.CfnOutput(this, 'RTMPEndpoint', {
-      value: `rtmp://52.213.32.59:1935/live`,
+      value: `rtmp://${elasticIpAddress}:1935/live`,
       description: 'RTMP Publishing Endpoint (Static IP via Elastic IP)',
       exportName: context.stackName('rtmp-endpoint'),
     });
 
+    // -----------------------------------------------------------------------
+    // CloudWatch Alarms (Task 7.3 — Req 20.2, Design §23)
+    // -----------------------------------------------------------------------
+
+    new cloudwatch.Alarm(this, 'CpuAlarm', {
+      metric: this.service.metricCpuUtilization({ period: cdk.Duration.minutes(5) }),
+      threshold: 80,
+      evaluationPeriods: 2,
+      comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
+      alarmDescription: 'ECS CPU utilization > 80% for 10 min',
+      alarmName: context.stackName('cpu-high'),
+    });
+
+    new cloudwatch.Alarm(this, 'MemoryAlarm', {
+      metric: this.service.metricMemoryUtilization({ period: cdk.Duration.minutes(5) }),
+      threshold: 80,
+      evaluationPeriods: 2,
+      comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
+      alarmDescription: 'ECS memory utilization > 80% for 10 min',
+      alarmName: context.stackName('memory-high'),
+    });
+
+    new cloudwatch.Alarm(this, 'Http5xxAlarm', {
+      metric: this.loadBalancer.metrics.httpCodeElb(elbv2.HttpCodeElb.ELB_5XX_COUNT, {
+        period: cdk.Duration.minutes(5),
+        statistic: 'Sum',
+      }),
+      threshold: 10,
+      evaluationPeriods: 2,
+      comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
+      alarmDescription: 'ALB 5xx errors > 10 in 5 min',
+      alarmName: context.stackName('http-5xx-high'),
+    });
+
+    new cloudwatch.Alarm(this, 'LatencyAlarm', {
+      metric: this.loadBalancer.metrics.targetResponseTime({
+        period: cdk.Duration.minutes(5),
+        statistic: 'p99',
+      }),
+      threshold: 2,
+      evaluationPeriods: 2,
+      comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
+      alarmDescription: 'ALB p99 latency > 2s for 10 min',
+      alarmName: context.stackName('latency-p99-high'),
+    });
+
+    // -----------------------------------------------------------------------
+    // Outputs
+    // -----------------------------------------------------------------------
+
     new cdk.CfnOutput(this, 'RTMPStaticIP', {
-      value: '52.213.32.59',
+      value: elasticIpAddress,
       description: 'Static IP for RTMP streaming (Elastic IP)',
       exportName: context.stackName('rtmp-static-ip'),
     });
@@ -449,7 +599,7 @@ export class ApplicationStack extends cdk.Stack {
     });
 
     new cdk.CfnOutput(this, 'EndpointSummary', {
-      value: `Dashboard: http://${this.loadBalancer.loadBalancerDnsName}/ | Streaming: http://${this.loadBalancer.loadBalancerDnsName}:8080/live/{stream}.m3u8 | RTMP: rtmp://52.213.32.59:1935/live`,
+      value: `Dashboard: http://${this.loadBalancer.loadBalancerDnsName}/ | Streaming: http://${this.loadBalancer.loadBalancerDnsName}:8080/live/{stream}.m3u8 | RTMP: rtmp://${elasticIpAddress}:1935/live`,
       description: '🎯 ECS ENDPOINTS - All services via Load Balancers (RTMP via Static IP)',
       exportName: context.stackName('ecs-endpoints'),
     });
