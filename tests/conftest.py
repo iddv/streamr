@@ -72,6 +72,34 @@ async def production_client() -> AsyncGenerator[httpx.AsyncClient, None]:
     ) as client:
         yield client
 
+@pytest_asyncio.fixture
+async def auth_headers() -> AsyncGenerator[dict, None]:
+    """Register a test streamer and return Authorization headers with JWT.
+
+    The streamer is created once per test via the coordinator's own
+    ``/api/v1/auth/register-streamer`` endpoint so the token is valid for
+    all authenticated endpoints (POST /streams, PATCH /streams/…/status, etc.).
+    """
+    import uuid
+
+    url = get_coordinator_url()
+    timeout = httpx.Timeout(10.0, connect=5.0)
+
+    unique = uuid.uuid4().hex[:8]
+    payload = {
+        "email": f"test-{unique}@integration.test",
+        "password": "TestPass123!",
+        "display_name": f"IntegrationBot-{unique}",
+    }
+
+    async with httpx.AsyncClient(base_url=url, timeout=timeout) as client:
+        resp = await client.post("/api/v1/auth/register-streamer", json=payload)
+        assert resp.status_code == 200, f"Streamer registration failed: {resp.text}"
+        token = resp.json()["token"]
+
+    yield {"Authorization": f"Bearer {token}"}
+
+
 @pytest.fixture
 def test_stream_data():
     """Test data for stream creation."""
@@ -83,26 +111,26 @@ def test_stream_data():
     }
 
 @pytest_asyncio.fixture
-async def cleanup_test_streams():
+async def cleanup_test_streams(auth_headers: dict):
     """Cleanup fixture to remove test streams after tests."""
     created_streams = []
-    
+
     def track_stream(stream_id: str):
         created_streams.append(stream_id)
-    
+
     yield track_stream
-    
-    # Cleanup after test - create our own client for cleanup
+
+    # Cleanup after test — use auth headers so DELETE is authorized
     url = get_coordinator_url()
     timeout = httpx.Timeout(10.0, connect=5.0)
-    
+
     async with httpx.AsyncClient(
         base_url=url,
         timeout=timeout,
-        headers={"Content-Type": "application/json"}
+        headers={"Content-Type": "application/json", **auth_headers},
     ) as client:
         for stream_id in created_streams:
             try:
                 await client.delete(f"/streams/{stream_id}")
-            except:
-                pass  # Ignore cleanup failures 
+            except Exception:
+                pass  # Ignore cleanup failures
