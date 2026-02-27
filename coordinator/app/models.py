@@ -95,9 +95,7 @@ class Node(Base):
     probe_results = relationship("ProbeResult", back_populates="node",
                                 foreign_keys="[ProbeResult.node_id]",
                                 primaryjoin="Node.node_id == ProbeResult.node_id")
-    user_account = relationship("UserAccount", back_populates="node", uselist=False,
-                                foreign_keys="[UserAccount.user_id]",
-                                primaryjoin="Node.user_id == UserAccount.user_id")
+    # user_account accessed via user_identity.account (indirect after migration 002)
     bandwidth_reports = relationship("BandwidthLedger", back_populates="reporting_node",
                                      foreign_keys="[BandwidthLedger.reporting_node_id]",
                                      primaryjoin="Node.node_id == BandwidthLedger.reporting_node_id")
@@ -156,9 +154,7 @@ class UserAccount(Base):
     
     # Relationships
     user_identity = relationship("UserIdentity", back_populates="account")
-    node = relationship("Node", back_populates="user_account", uselist=False,
-                        foreign_keys="[Node.user_id]",
-                        primaryjoin="UserAccount.user_id == Node.user_id")
+    # node accessed via user_identity.nodes (indirect after migration 002)
 
 
 # --- Feedback, Payout, and Data Retention Models (Migration 004) ---
