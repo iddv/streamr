@@ -62,39 +62,49 @@
 
 ---
 
-## Phase 4: Staged Deployment to Beta
+## Phase 4: Staged Deployment to Beta ✅
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 4.1 | Create feature branch `deploy/mvp-v1` | ⬜ | Phase 2 cleanup commits go here |
-| 4.2 | Open PR against `main` | ⬜ | CI triggers but NOT deployment |
-| 4.3 | Verify CI passes on PR | ⬜ | CDK build, CDK tests, Go tests |
-| 4.4 | Merge PR to `main` | ⬜ | Triggers deploy workflow automatically |
-| 4.5 | Monitor GitHub Actions deploy job | ⬜ | OIDC → Foundation → Docker build+push → Application |
-| 4.6 | Monitor ECS task startup / Alembic migration logs | ⬜ | CloudWatch logs |
-| 4.7 | Verify new ECS task reaches RUNNING state | ⬜ | `runningCount: 1` |
-| 4.8 | Verify ALB health check passes | ⬜ | Healthy target within 2-3 min |
+| 4.1 | Commit MVP code to `main` | ✅ | `eb78d38` — 75 files, 9962 insertions |
+| 4.2 | Fix migration 002 FK ordering | ✅ | `c9850af` — drop FKs before index |
+| 4.3 | Fix migration 001 idempotency | ✅ | `3fa3aac` — skip if tables exist from legacy `create_all()` |
+| 4.4 | Fix ORM mapper (Node↔UserAccount) | ✅ | `d5c7737` — remove broken direct relationship |
+| 4.5 | Deploy job passes | ✅ | GH Actions run `22505346527`, deploy in 9m51s |
+| 4.6 | CF stack `UPDATE_COMPLETE` | ✅ | Task def rev 22, rollout COMPLETED |
+| 4.7 | ECS task RUNNING 1/1 | ✅ | Rev 22, healthy |
+| 4.8 | ALB health check passes | ✅ | `/health` → 200, DB ok, Redis ok, scheduler ok |
+| 4.9 | Sanity tests pass (health + dashboard) | ✅ | CI sanity step green |
+| 4.10 | Integration test script missing | ✅ | Script existed but tests lacked JWT auth — fixed in Phase 5 (commit `62f1f84`) |
 
-**Rollback plan:** Entrypoint exits code 1 on migration failure → ECS keeps old task (rolling deploy). New code crash → ECS auto-rollback.
+**Issues resolved during deploy:**
+- Migration 002 tried to drop index before dependent FKs → reordered
+- Legacy rev 17 `create_all()` recreated tables during rolling deploy → made migration 001 idempotent
+- SQLAlchemy mapper error on Node↔UserAccount relationship after schema refactor → removed broken direct relationship
 
 ---
 
-## Phase 5: Post-Deploy Validation
+## Phase 5: Post-Deploy Validation ✅
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 5.1 | Health check: `GET /health` | ⬜ | DB + Redis status |
-| 5.2 | Auth: register test streamer | ⬜ | `POST /api/v1/auth/register-streamer` |
-| 5.3 | Auth: login and receive JWT | ⬜ | `POST /api/v1/auth/login` |
-| 5.4 | Auth: register test node | ⬜ | `POST /api/v1/auth/register` |
-| 5.5 | Stream: create a stream | ⬜ | `POST /streams` with JWT |
-| 5.6 | Stream: verify stream key returned | ⬜ | |
-| 5.7 | Dashboard: streamer dashboard renders | ⬜ | `GET /dashboard/streamer/{id}` |
-| 5.8 | Dashboard: node dashboard renders | ⬜ | `GET /dashboard/node/{id}` |
-| 5.9 | Dashboard: viewer page renders | ⬜ | `GET /watch/{id}` |
-| 5.10 | Economics: config endpoint | ⬜ | `GET /api/v1/economics/config` |
-| 5.11 | Admin: validation report | ⬜ | `GET /api/v1/admin/validation-report` |
-| 5.12 | Feedback: submit feedback | ⬜ | `POST /api/v1/feedback` |
+| 5.1 | Health check: `GET /health` | ✅ | DB ok, Redis ok, scheduler ok (4 jobs scheduled) |
+| 5.2 | Auth: register test streamer | ✅ | `POST /api/v1/auth/register-streamer` → 200, JWT + user_id returned |
+| 5.3 | Auth: login and receive JWT | ✅ | `POST /api/v1/auth/login` → 200, role=streamer, RS256 JWT |
+| 5.4 | Auth: register test node | ✅ | `POST /api/v1/auth/register` → 200, role=node, stream_id + node_id in JWT. Required migration 005 (vpn_ip/capacity_pct columns missing) |
+| 5.5 | Stream: create a stream | ✅ | `POST /streams` with JWT → 200, stream_id=validation-test-stream |
+| 5.6 | Stream: verify stream key returned | ✅ | 43-char `token_urlsafe(32)` key returned |
+| 5.7 | Dashboard: streamer dashboard renders | ✅ | `GET /dashboard/streamer/{id}` → 200 (4996 bytes HTML) |
+| 5.8 | Dashboard: node dashboard renders | ✅ | `GET /dashboard/node/{id}` → 200 |
+| 5.9 | Dashboard: viewer page renders | ✅ | `GET /watch/{id}` → 200 |
+| 5.10 | Economics: config endpoint | ✅ | `GET /api/v1/economics/config` → 200 (rate_per_gb=0.05, platform_margin=0.075) |
+| 5.11 | Admin: validation report | ✅ | `GET /api/v1/admin/validation-report` → 200 (5 streams, 1 live, bandwidth/payout data) |
+| 5.12 | Feedback: submit feedback | ✅ | `POST /api/v1/feedback` → 201, id=1 |
+
+**Issues resolved during Phase 5:**
+- Migration 005 added missing `vpn_ip` (String(45)) and `capacity_pct` (Integer) columns to `nodes` table — ORM model had them but no migration created them, causing 500 on node registration.
+- Integration tests fixed — added JWT auth (`auth_headers` fixture) to lifecycle tests that were getting 403 from `require_streamer` guard. Commit `62f1f84`.
+- CI fully green: deploy + sanity + lifecycle integration tests all pass (GH Actions run `22506399032`).
 
 ---
 
