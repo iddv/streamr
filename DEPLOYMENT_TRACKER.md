@@ -216,16 +216,16 @@ OBS → RTMP → [NLB:1935] → [SRS] → HLS segments
 
 | # | Test | Status | Notes |
 |---|------|--------|-------|
-| 8.1 | Go node fetches HLS from SRS via ALB | ⬜ | Node client pointed at ALB:8080, verify segments download |
-| 8.2 | Go node serves HLS to local viewer | ⬜ | Open `http://localhost:8080/live/{stream_id}/index.m3u8` in VLC while node runs |
-| 8.3 | Viewer routing returns friend node proxy URL | ⬜ | With node heartbeating, `GET /api/v1/watch/{stream_id}` should return `source_type: friend_node` |
-| 8.4 | Proxy endpoint reaches node (without VPN) | ⬜ | Proxy uses `vpn_ip` — without Headscale, this won't work. Need to test fallback path. |
-| 8.5 | Viewer page plays via friend node | ⬜ | Full browser test: viewer page → routing → proxy → node → HLS.js playback |
-| 8.6 | Bandwidth reports flow during restream | ⬜ | Verify ledger entries accumulate while node is actively serving |
-| 8.7 | Node graceful shutdown + deregistration | ⬜ | Ctrl+C → deregister API call → node removed from Redis → viewer falls back to SRS |
-| 8.8 | Multiple nodes on same stream | ⬜ | Two Go nodes, verify routing picks highest trust / lowest viewers |
-| 8.9 | Node capacity saturation | ⬜ | Hit max_viewers limit, verify 503 and routing excludes saturated node |
-| 8.10 | Friend Quick Start guide accuracy | ⬜ | Follow FRIEND_QUICK_START.md as a new user, verify every step works |
+| 8.1 | Go node fetches HLS from SRS via ALB | ✅ | Node registered, fetched segments from SRS via ALB:8080. Two-level playlist handling (master→variant) + query param stripping working. Commit `afe2d8e`. |
+| 8.2 | Go node serves HLS to local viewer | ✅ | `curl localhost:9090/live/e2e-phase8-restream/index.m3u8` returned valid playlist with 25 segments. Clean `.ts` names served from buffer. |
+| 8.3 | Viewer routing returns friend node proxy URL | ✅ | `GET /api/v1/watch/e2e-phase8-restream` → `source_type: friend_node`, `node_id: e2e-test-node-phase8`, proxy URL returned. Routing selects node after heartbeat updates Redis. |
+| 8.4 | Proxy endpoint reaches node (without VPN) | ⚠️ | Proxy falls back to SRS as expected — node has no `vpn_ip` without Headscale. Proxy SRS fallback returns 200. For friends testing, direct node access (localhost:9090) is the path. VPN proxy path deferred to post-friends-testing. |
+| 8.5 | Viewer page plays via friend node | ⚠️ | Deferred — requires VPN for proxy path, or direct node URL. Viewer page works with SRS fallback. Direct node HLS confirmed working via curl in 8.2. |
+| 8.6 | Bandwidth reports flow during restream | ✅ | Reports accumulate during active restream. Validation report: 11 reports, 0.65 GB total. 60s reporter cycle confirmed. |
+| 8.7 | Node graceful shutdown + deregistration | ✅ | Stale cleanup removes node from Redis after 90s → routing falls back to `source_type: srs`. Deregister API exists but couldn't test via SIGTERM in this environment (process killed too fast). Code path verified in unit tests. |
+| 8.8 | Multiple nodes on same stream | ⬜ | Deferred — routing logic verified in Phase 6.10 with two nodes. Full E2E with two Go binaries not critical for friends testing. |
+| 8.9 | Node capacity saturation | ⬜ | Deferred — capacity limiting verified in Go unit tests (503 at max_viewers). Full E2E not critical for friends testing. |
+| 8.10 | Friend Quick Start guide accuracy | ⬜ | Update FRIEND_QUICK_START.md with validated commands and test. |
 
 ### Critical Gap: VPN Mesh vs Direct Access
 
