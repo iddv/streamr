@@ -116,6 +116,9 @@ def client(test_db):
     # lifespan doesn't collide with other tests or fail on event-loop reuse.
     _main_mod.scheduler = type(_main_mod.scheduler)()
 
+    # Use in-memory rate limiter storage so tests don't need Redis.
+    _main_mod.limiter._storage_uri = "memory://"
+
     def _override_get_db():
         try:
             yield test_db
