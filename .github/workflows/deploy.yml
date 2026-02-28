@@ -290,7 +290,10 @@ jobs:
   post-deploy-tests:
     needs: deploy
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    # always() is needed because 'deploy' uses always() in its own condition,
+    # which causes GitHub to skip downstream jobs by default.
+    # We still gate on deploy success + main branch.
+    if: always() && needs.deploy.result == 'success' && github.ref == 'refs/heads/main'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
