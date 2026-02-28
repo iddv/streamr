@@ -2,10 +2,10 @@ package main
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -25,19 +25,17 @@ var (
 )
 
 func main() {
-	// Handle -version and -help before config loading
-	showHelp := flag.Bool("help", false, "Show help message")
-	showVer := flag.Bool("version", false, "Show version information")
-	flag.Parse()
-
-	if *showHelp {
-		printHelp()
-		return
-	}
-
-	if *showVer {
-		fmt.Printf("StreamrP2P Node Client v%s (%s)\n", version, commit)
-		return
+	// Handle -version and -help before config loading (check os.Args directly
+	// to avoid conflicting with the config loader's FlagSet)
+	for _, arg := range os.Args[1:] {
+		switch arg {
+		case "-help", "--help":
+			printHelp()
+			return
+		case "-version", "--version":
+			fmt.Printf("StreamrP2P Node Client v%s (%s)\n", version, commit)
+			return
+		}
 	}
 
 	// 1. Load config (task 3.1)
@@ -116,7 +114,18 @@ func main() {
 	go client.HeartbeatLoop(ctx)
 
 	// 5. Start HLS fetcher in goroutine (task 3.5)
-	srsURL := cfg.CoordinatorURL // SRS URL defaults to coordinator for now
+	srsURL := cfg.SRSURL
+	if srsURL == "" {
+		// Derive SRS URL from coordinator URL by switching to port 8080
+		srsURL = cfg.CoordinatorURL
+		// If coordinator is on default port 80 or explicit, replace with 8080
+		if strings.Contains(srsURL, ":80/") || strings.HasSuffix(srsURL, ":80") {
+			srsURL = strings.Replace(srsURL, ":80", ":8080", 1)
+		} else if !strings.Contains(srsURL[8:], ":") {
+			// No port specified — append :8080
+			srsURL = strings.TrimRight(srsURL, "/") + ":8080"
+		}
+	}
 	fetcher := hls.NewFetcher(srsURL, regResp.StreamID, buffer, log)
 	go fetcher.Start(ctx)
 
@@ -190,6 +199,7 @@ func printHelp() {
 	fmt.Println("  -port int            HLS serve port")
 	fmt.Println("  -max-segments int    Max buffer segments")
 	fmt.Println("  -max-viewers int     Max concurrent viewers")
+	fmt.Println("  -srs-url string      SRS streaming server URL (defaults to coordinator:8080)")
 	fmt.Println("  -help                Show this help message")
 	fmt.Println("  -version             Show version information")
 	fmt.Println()

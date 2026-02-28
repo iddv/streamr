@@ -147,3 +147,49 @@ clip.ts
 func segName(i int) string {
 	return "seg" + string(rune('0'+i%10)) + ".ts"
 }
+
+func TestParseM3U8_SRSQueryParams(t *testing.T) {
+	// SRS appends ?hls_ctx=xxx to segment names in variant playlists
+	playlist := `#EXTM3U
+#EXT-X-VERSION:3
+#EXT-X-MEDIA-SEQUENCE:31
+#EXT-X-TARGETDURATION:2
+#EXTINF:2.000, no desc
+e2e-phase8-restream-31.ts?hls_ctx=1lfwew84
+#EXTINF:2.000, no desc
+e2e-phase8-restream-32.ts?hls_ctx=1lfwew84
+`
+	segments := ParseM3U8(playlist)
+	if len(segments) != 2 {
+		t.Fatalf("expected 2 segments, got %d", len(segments))
+	}
+	// Name should be clean (no query params)
+	if segments[0].Name != "e2e-phase8-restream-31.ts" {
+		t.Errorf("expected clean name, got %s", segments[0].Name)
+	}
+	// RawURL should preserve query params
+	if segments[0].RawURL != "e2e-phase8-restream-31.ts?hls_ctx=1lfwew84" {
+		t.Errorf("expected raw URL with query params, got %s", segments[0].RawURL)
+	}
+	if segments[0].Duration != 2.0 {
+		t.Errorf("expected duration 2.0, got %f", segments[0].Duration)
+	}
+}
+
+func TestParseM3U8_StandardHasRawURL(t *testing.T) {
+	// Without query params, RawURL should equal Name
+	playlist := `#EXTM3U
+#EXTINF:2.000,
+seg100.ts
+`
+	segments := ParseM3U8(playlist)
+	if len(segments) != 1 {
+		t.Fatalf("expected 1 segment, got %d", len(segments))
+	}
+	if segments[0].Name != "seg100.ts" {
+		t.Errorf("expected seg100.ts, got %s", segments[0].Name)
+	}
+	if segments[0].RawURL != "seg100.ts" {
+		t.Errorf("expected RawURL=seg100.ts, got %s", segments[0].RawURL)
+	}
+}

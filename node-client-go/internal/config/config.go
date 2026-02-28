@@ -21,6 +21,7 @@ type Config struct {
 	ServePort         int           `yaml:"serve_port"`
 	MaxBufferSegments int           `yaml:"max_buffer_segments"`
 	MaxViewers        int           `yaml:"max_concurrent_viewers"`
+	SRSURL            string        `yaml:"srs_url"`
 }
 
 // Defaults returns a Config with all default values.
@@ -112,6 +113,7 @@ func LoadWithArgs(args []string) (*Config, error) {
 	port := fs.Int("port", 0, "HLS serve port")
 	maxSegments := fs.Int("max-segments", 0, "Max buffer segments")
 	maxViewers := fs.Int("max-viewers", 0, "Max concurrent viewers")
+	srsURL := fs.String("srs-url", "", "SRS streaming server URL (defaults to coordinator URL with port 8080)")
 
 	// Also support legacy flags
 	fs.String("help", "", "")
@@ -146,6 +148,9 @@ func LoadWithArgs(args []string) (*Config, error) {
 	}
 	if *maxViewers > 0 {
 		cfg.MaxViewers = *maxViewers
+	}
+	if *srsURL != "" {
+		cfg.SRSURL = *srsURL
 	}
 
 	return &cfg, nil
