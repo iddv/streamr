@@ -454,7 +454,7 @@ export class ApplicationStack extends cdk.Stack {
     );
 
     // Headscale EC2 Instance
-    this.headscaleInstance = new ec2.Instance(this, 'HeadscaleInstance', {
+    this.headscaleInstance = new ec2.Instance(this, 'HeadscaleInstanceV2', {
       instanceName: context.resourceName('headscale'),
       instanceType: ec2.InstanceType.of(ec2.InstanceClass.T3, ec2.InstanceSize.MICRO),
       machineImage: ec2.MachineImage.latestAmazonLinux2023(),
@@ -818,19 +818,19 @@ export class ApplicationStack extends cdk.Stack {
     });
 
     // Headscale EC2 outputs
-    new cdk.CfnOutput(this, 'HeadscaleInstanceId', {
+    new cdk.CfnOutput(this, 'HeadscaleInstanceIdV2', {
       value: this.headscaleInstance.instanceId,
       description: 'Headscale EC2 Instance ID (use SSM to connect)',
       exportName: context.stackName('headscale-instance-id'),
     });
 
-    new cdk.CfnOutput(this, 'HeadscalePrivateIP', {
+    new cdk.CfnOutput(this, 'HeadscalePrivateIPV2', {
       value: this.headscaleInstance.instancePrivateIp,
       description: 'Headscale EC2 Private IP (VPC-internal coordination)',
       exportName: context.stackName('headscale-private-ip'),
     });
 
-    new cdk.CfnOutput(this, 'HeadscalePublicURL', {
+    new cdk.CfnOutput(this, 'HeadscalePublicURLV2', {
       value: `http://<HEADSCALE_PUBLIC_IP>:8080`,
       description: 'Headscale public URL for friend nodes (check EC2 console for public IP)',
       exportName: context.stackName('headscale-public-url'),
