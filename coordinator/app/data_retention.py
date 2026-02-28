@@ -15,7 +15,7 @@ import logging
 import os
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import func, literal, Date
+from sqlalchemy import case, func, literal, Date
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
@@ -109,7 +109,7 @@ def _aggregate_bandwidth(db: Session, cutoff: datetime) -> int:
             month_expr.label("month"),
             func.sum(BandwidthLedger.bytes_transferred).label("total_bytes"),
             func.sum(
-                func.case(
+                case(
                     (BandwidthLedger.is_verified == True, BandwidthLedger.bytes_transferred),  # noqa: E712
                     else_=literal(0),
                 )

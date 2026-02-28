@@ -109,7 +109,12 @@ def test_redis():
 @pytest.fixture()
 def client(test_db):
     """TestClient with DB dependency overridden to use test_db."""
+    from app import main as _main_mod
     from app.main import app
+
+    # Replace the global scheduler with a fresh no-op instance so the
+    # lifespan doesn't collide with other tests or fail on event-loop reuse.
+    _main_mod.scheduler = type(_main_mod.scheduler)()
 
     def _override_get_db():
         try:

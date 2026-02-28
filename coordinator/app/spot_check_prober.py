@@ -41,7 +41,10 @@ class SpotCheckProber:
             # Get nodes that have been reporting as healthy recently
             recent_time = datetime.now(timezone.utc) - timedelta(minutes=5)
             
-            healthy_nodes = db.query(models.Node).join(models.ProbeResult).filter(
+            healthy_nodes = db.query(models.Node).join(
+                models.ProbeResult,
+                models.ProbeResult.node_id == models.Node.node_id,
+            ).filter(
                 and_(
                     models.Node.status == "active",
                     models.ProbeResult.probe_type == "stats_poll",
