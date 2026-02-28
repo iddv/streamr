@@ -301,27 +301,31 @@ class TestSrsOnPublish:
             json={"param": f"?key={stream.stream_key}"},
         )
         assert resp.status_code == 200
+        assert resp.json()["code"] == 0
 
     def test_on_publish_invalid_key(self, db, client):
         resp = client.post(
             "/api/v1/srs/on-publish",
             json={"param": "?key=totally-invalid-key"},
         )
-        assert resp.status_code == 403
+        assert resp.status_code == 200
+        assert resp.json()["code"] != 0
 
     def test_on_publish_missing_key(self, db, client):
         resp = client.post(
             "/api/v1/srs/on-publish",
             json={"param": ""},
         )
-        assert resp.status_code == 403
+        assert resp.status_code == 200
+        assert resp.json()["code"] != 0
 
     def test_on_publish_no_param(self, db, client):
         resp = client.post(
             "/api/v1/srs/on-publish",
             json={},
         )
-        assert resp.status_code == 403
+        assert resp.status_code == 200
+        assert resp.json()["code"] != 0
 
     def test_on_publish_key_without_question_mark(self, db, client):
         streamer = _create_streamer(db)
@@ -332,3 +336,4 @@ class TestSrsOnPublish:
             json={"param": f"key={stream.stream_key}"},
         )
         assert resp.status_code == 200
+        assert resp.json()["code"] == 0

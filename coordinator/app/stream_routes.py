@@ -12,7 +12,7 @@ import secrets
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -188,7 +188,8 @@ async def srs_on_publish(request: Request, db: Session = Depends(get_db)):
 
     if not stream_key:
         logger.warning("SRS on_publish: missing stream key in param=%r", param)
-        return PlainTextResponse(status_code=403, content="Missing stream key")
+        # SRS expects JSON with non-zero code to reject
+        return JSONResponse(status_code=200, content={"code": 1, "msg": "Missing stream key"})
 
     # Validate the stream key
     stream = (
@@ -196,12 +197,13 @@ async def srs_on_publish(request: Request, db: Session = Depends(get_db)):
     )
     if not stream:
         logger.warning("SRS on_publish: invalid stream key")
-        return PlainTextResponse(status_code=403, content="Invalid stream key")
+        return JSONResponse(status_code=200, content={"code": 1, "msg": "Invalid stream key"})
 
     logger.info(
         "SRS on_publish: authorized stream=%s", stream.stream_id
     )
-    return PlainTextResponse(status_code=200, content="OK")
+    # SRS expects JSON with code=0 to allow publish
+    return JSONResponse(status_code=200, content={"code": 0})
 
 
 # ---------------------------------------------------------------------------
