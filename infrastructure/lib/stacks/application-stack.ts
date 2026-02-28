@@ -309,12 +309,9 @@ export class ApplicationStack extends cdk.Stack {
       'Allow DERP STUN relay for NAT traversal'
     );
 
-    // Allow Headscale to reach RDS PostgreSQL
-    dbSecurityGroup.addIngressRule(
-      headscaleSecurityGroup,
-      ec2.Port.tcp(streamrConfig.database.port),
-      'Allow Headscale EC2 to access RDS'
-    );
+    // Headscale EC2 can reach RDS because the DB security group already allows
+    // ingress from the entire VPC CIDR (configured in foundation stack).
+    // No additional cross-stack security group rule needed.
 
     // IAM Role for Headscale EC2 — SSM access + read DB secret
     const headscaleRole = new iam.Role(this, 'HeadscaleRole', {
