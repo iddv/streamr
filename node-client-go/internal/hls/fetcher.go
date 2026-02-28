@@ -118,7 +118,8 @@ func NewFetcher(srsURL, streamID string, buffer *SegmentBuffer, log *logrus.Entr
 
 // Start begins polling the SRS playlist and downloading new segments.
 func (f *Fetcher) Start(ctx context.Context) {
-	playlistURL := fmt.Sprintf("%s/live/%s/index.m3u8", f.srsURL, f.streamID)
+	// SRS flat HLS layout: /live/{stream}.m3u8 and /live/{stream}-{seq}.ts
+	playlistURL := fmt.Sprintf("%s/live/%s.m3u8", f.srsURL, f.streamID)
 	pollInterval := 2 * time.Second
 
 	f.log.WithFields(logrus.Fields{
@@ -202,7 +203,8 @@ func (f *Fetcher) pollPlaylist(ctx context.Context, playlistURL string) error {
 
 // downloadSegment downloads a single .ts segment from SRS.
 func (f *Fetcher) downloadSegment(ctx context.Context, name string) ([]byte, error) {
-	segURL := fmt.Sprintf("%s/live/%s/%s", f.srsURL, f.streamID, name)
+	// SRS flat layout: segments are at /live/{stream}-{seq}.ts (same level as playlist)
+	segURL := fmt.Sprintf("%s/live/%s", f.srsURL, name)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", segURL, nil)
 	if err != nil {

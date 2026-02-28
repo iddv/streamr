@@ -145,8 +145,13 @@ async def proxy_hls(stream_id: str, path: str, request: Request):
     else:
         _log_fallback(stream_id, "no_active_nodes")
 
-    # SRS fallback
-    srs_url = f"http://{SRS_HOST}:{SRS_PORT}/live/{stream_id}/{path}"
+    # SRS fallback — translate from subdirectory-style paths (used by Go node)
+    # to SRS flat HLS layout: /live/{stream}.m3u8 and /live/{stream}-{seq}.ts
+    if path == "index.m3u8":
+        srs_path = f"{stream_id}.m3u8"
+    else:
+        srs_path = path
+    srs_url = f"http://{SRS_HOST}:{SRS_PORT}/live/{srs_path}"
     try:
         client = await _get_http_client()
         resp = await client.get(srs_url)
