@@ -6,6 +6,7 @@ Provides streamer registration/login (email+password) and node registration
 """
 
 import logging
+import os
 from typing import Optional
 
 import bcrypt
@@ -56,6 +57,7 @@ class AuthResponse(BaseModel):
     stream_id: Optional[str] = None
     node_id: Optional[str] = None
     headscale_auth_key: Optional[str] = None
+    headscale_url: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------
@@ -248,6 +250,7 @@ async def register_node(
         stream_id=stream.stream_id,
         node_id=body.node_id,
         headscale_auth_key=headscale_auth_key,
+        headscale_url=os.getenv("HEADSCALE_URL", "") if headscale_auth_key else None,
     )
 
 

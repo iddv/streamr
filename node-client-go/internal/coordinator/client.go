@@ -18,6 +18,7 @@ type RegisterResponse struct {
 	Token            string `json:"token"`
 	StreamID         string `json:"stream_id"`
 	HeadscaleAuthKey string `json:"headscale_auth_key"`
+	HeadscaleURL     string `json:"headscale_url"`
 }
 
 // Client communicates with the coordinator API.

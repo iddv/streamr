@@ -8,6 +8,8 @@ import * as ecr from 'aws-cdk-lib/aws-ecr';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as acm from 'aws-cdk-lib/aws-certificatemanager';
 import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
+import * as rds from 'aws-cdk-lib/aws-rds';
+import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import { Construct } from 'constructs';
 import { DeploymentContext } from '../config/types';
 import { streamrConfig } from '../config/streamr-config';
@@ -15,6 +17,7 @@ import { streamrConfig } from '../config/streamr-config';
 export interface ApplicationStackProps extends cdk.StackProps {
   readonly context: DeploymentContext;
   readonly vpc: ec2.IVpc;
+  readonly database: rds.IDatabaseInstance;
   readonly dbSecurityGroup: ec2.SecurityGroup;
   readonly cacheSecurityGroup: ec2.SecurityGroup;
   readonly deploymentBucket: s3.IBucket;
@@ -27,11 +30,12 @@ export class ApplicationStack extends cdk.Stack {
   public readonly loadBalancer: elbv2.ApplicationLoadBalancer;
   public readonly serviceSecurityGroup: ec2.SecurityGroup;
   public readonly taskDefinition: ecs.FargateTaskDefinition;
+  public readonly headscaleInstance: ec2.Instance;
 
   constructor(scope: Construct, id: string, props: ApplicationStackProps) {
     super(scope, id, props);
 
-    const { context, vpc, dbSecurityGroup, cacheSecurityGroup, deploymentBucket, ecrRepository, ecsCluster } = props;
+    const { context, vpc, database, dbSecurityGroup, cacheSecurityGroup, deploymentBucket, ecrRepository, ecsCluster } = props;
     const { stageConfig } = context;
 
     // Get image tag from CDK context (passed from CI/CD pipeline)
@@ -277,36 +281,202 @@ export class ApplicationStack extends cdk.Stack {
       }
     );
 
-    // Headscale VPN Coordination Container (Req 9.1)
-    const headscaleContainer = this.taskDefinition.addContainer('headscale', {
-      image: ecs.ContainerImage.fromRegistry('headscale/headscale:latest'),
-      containerName: 'headscale',
-      command: ['serve'],
-      logging: ecs.LogDriver.awsLogs({
-        streamPrefix: 'headscale',
-        logGroup: logGroup,
-      }),
-      essential: false,
-      environment: {
-        'HEADSCALE_DATABASE_TYPE': 'postgres',
-        'HEADSCALE_DATABASE_POSTGRES_HOST': 'SET_VIA_SECRETS',
-        'HEADSCALE_DATABASE_POSTGRES_PORT': String(streamrConfig.database.port),
-        'HEADSCALE_DATABASE_POSTGRES_NAME': 'streamr',
-        'HEADSCALE_DATABASE_POSTGRES_USER': 'SET_VIA_SECRETS',
-        'HEADSCALE_DATABASE_POSTGRES_PASS': 'SET_VIA_SECRETS',
-        'HEADSCALE_DATABASE_POSTGRES_SSL': 'true',
-      },
+    // -----------------------------------------------------------------------
+    // Headscale VPN Coordination Server on EC2 (Phase 9)
+    // Dedicated EC2 instance — Headscale is stateful, ECS rolling deploys
+    // would kill active VPN connections. EC2 is persistent and always-on.
+    // -----------------------------------------------------------------------
+
+    // Security Group for Headscale EC2
+    const headscaleSecurityGroup = new ec2.SecurityGroup(this, 'HeadscaleSecurityGroup', {
+      vpc,
+      securityGroupName: context.resourceName('headscale-sg'),
+      description: 'Headscale VPN coordination server',
+      allowAllOutbound: true,
     });
 
-    headscaleContainer.addPortMappings(
-      {
-        containerPort: 443,
-        protocol: ecs.Protocol.TCP,
-        name: 'headscale-https',
-      }
+    // Coordination port — friend nodes and Tailscale sidecar connect here
+    headscaleSecurityGroup.addIngressRule(
+      ec2.Peer.anyIpv4(),
+      ec2.Port.tcp(8080),
+      'Allow Headscale coordination traffic (nodes + coordinator)'
     );
 
-    // Tailscale sidecar — coordinator joins the VPN mesh (Req 9, Design §12/§14)
+    // DERP relay — UDP STUN for NAT traversal
+    headscaleSecurityGroup.addIngressRule(
+      ec2.Peer.anyIpv4(),
+      ec2.Port.udp(3478),
+      'Allow DERP STUN relay for NAT traversal'
+    );
+
+    // Allow Headscale to reach RDS PostgreSQL
+    dbSecurityGroup.addIngressRule(
+      headscaleSecurityGroup,
+      ec2.Port.tcp(streamrConfig.database.port),
+      'Allow Headscale EC2 to access RDS'
+    );
+
+    // IAM Role for Headscale EC2 — SSM access + read DB secret
+    const headscaleRole = new iam.Role(this, 'HeadscaleRole', {
+      roleName: context.resourceName('headscale-role'),
+      assumedBy: new iam.ServicePrincipal('ec2.amazonaws.com'),
+      managedPolicies: [
+        iam.ManagedPolicy.fromAwsManagedPolicyName('AmazonSSMManagedInstanceCore'),
+      ],
+    });
+
+    // Allow Headscale EC2 to read DB credentials from Secrets Manager
+    headscaleRole.addToPolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: ['secretsmanager:GetSecretValue'],
+      resources: [`arn:aws:secretsmanager:${context.region}:*:secret:${context.resourceName('db-credentials')}*`],
+    }));
+
+    // Allow Headscale EC2 to read/write its own API key secret
+    headscaleRole.addToPolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: [
+        'secretsmanager:GetSecretValue',
+        'secretsmanager:PutSecretValue',
+        'secretsmanager:CreateSecret',
+        'secretsmanager:DescribeSecret',
+      ],
+      resources: [`arn:aws:secretsmanager:${context.region}:*:secret:${context.resourceName('headscale-api-key')}*`],
+    }));
+
+    // User data script — installs Headscale, configures it, starts the service
+    const headscaleUserData = ec2.UserData.forLinux();
+    headscaleUserData.addCommands(
+      '#!/bin/bash',
+      'set -euo pipefail',
+      'exec > >(tee /var/log/headscale-setup.log) 2>&1',
+      '',
+      '# Install dependencies',
+      'yum update -y',
+      'yum install -y jq postgresql15',
+      '',
+      '# Install Headscale',
+      'HEADSCALE_VERSION="0.23.0"',
+      'curl -Lo /usr/local/bin/headscale https://github.com/juanfont/headscale/releases/download/v${HEADSCALE_VERSION}/headscale_${HEADSCALE_VERSION}_linux_amd64',
+      'chmod +x /usr/local/bin/headscale',
+      '',
+      '# Create headscale user and directories',
+      'useradd --system --no-create-home --shell /usr/sbin/nologin headscale || true',
+      'mkdir -p /etc/headscale /var/lib/headscale',
+      'chown headscale:headscale /var/lib/headscale',
+      '',
+      '# Fetch DB credentials from Secrets Manager',
+      `DB_SECRET=$(aws secretsmanager get-secret-value --secret-id ${context.resourceName('db-credentials')} --region ${context.region} --query SecretString --output text)`,
+      'DB_HOST=$(echo "$DB_SECRET" | jq -r .host)',
+      'DB_PORT=$(echo "$DB_SECRET" | jq -r .port)',
+      'DB_USER=$(echo "$DB_SECRET" | jq -r .username)',
+      'DB_PASS=$(echo "$DB_SECRET" | jq -r .password)',
+      'DB_NAME=$(echo "$DB_SECRET" | jq -r .dbname)',
+      '',
+      '# Create headscale schema in RDS if it does not exist',
+      'PGPASSWORD="$DB_PASS" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -c "CREATE SCHEMA IF NOT EXISTS headscale;"',
+      '',
+      '# Get EC2 instance public IP for server_url',
+      'TOKEN=$(curl -s -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")',
+      'PUBLIC_IP=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/public-ipv4)',
+      '',
+      '# Write Headscale config',
+      'cat > /etc/headscale/config.yaml << HSEOF',
+      'server_url: http://${PUBLIC_IP}:8080',
+      'listen_addr: 0.0.0.0:8080',
+      'grpc_listen_addr: 0.0.0.0:50443',
+      '',
+      'noise:',
+      '  private_key_path: /var/lib/headscale/noise_private.key',
+      '',
+      'prefixes:',
+      '  v4: 100.64.0.0/10',
+      '  v6: fd7a:115c:a1e0::/48',
+      '',
+      'database:',
+      '  type: postgres',
+      '  postgres:',
+      '    host: ${DB_HOST}',
+      '    port: ${DB_PORT}',
+      '    name: ${DB_NAME}',
+      '    user: ${DB_USER}',
+      '    pass: ${DB_PASS}',
+      '    ssl: true',
+      '    schema: headscale',
+      '',
+      'derp:',
+      '  server:',
+      '    enabled: true',
+      '    region_id: 999',
+      '    region_code: streamr',
+      '    region_name: StreamrP2P',
+      '    stun_listen_addr: 0.0.0.0:3478',
+      '',
+      'disable_check_updates: true',
+      '',
+      'dns:',
+      '  magic_dns: false',
+      '  base_domain: streamr.mesh',
+      'HSEOF',
+      '',
+      '# Write systemd service',
+      'cat > /etc/systemd/system/headscale.service << SVCEOF',
+      '[Unit]',
+      'Description=Headscale VPN coordination server',
+      'After=network.target',
+      '',
+      '[Service]',
+      'Type=simple',
+      'User=headscale',
+      'ExecStart=/usr/local/bin/headscale serve --config /etc/headscale/config.yaml',
+      'Restart=always',
+      'RestartSec=5',
+      '',
+      '[Install]',
+      'WantedBy=multi-user.target',
+      'SVCEOF',
+      '',
+      '# Start Headscale',
+      'systemctl daemon-reload',
+      'systemctl enable headscale',
+      'systemctl start headscale',
+      '',
+      '# Wait for Headscale to be ready',
+      'sleep 5',
+      '',
+      '# Create default user',
+      '/usr/local/bin/headscale users create default || true',
+      '',
+      '# Generate API key and store in Secrets Manager',
+      'API_KEY=$(/usr/local/bin/headscale apikeys create --expiration 365d 2>&1 | tail -1)',
+      `aws secretsmanager create-secret --name ${context.resourceName('headscale-api-key')} --secret-string "$API_KEY" --region ${context.region} 2>/dev/null || \\`,
+      `aws secretsmanager put-secret-value --secret-id ${context.resourceName('headscale-api-key')} --secret-string "$API_KEY" --region ${context.region}`,
+      '',
+      'echo "Headscale setup complete. API key stored in Secrets Manager."',
+      'echo "Public IP: ${PUBLIC_IP}"',
+    );
+
+    // Headscale EC2 Instance
+    this.headscaleInstance = new ec2.Instance(this, 'HeadscaleInstance', {
+      instanceName: context.resourceName('headscale'),
+      instanceType: ec2.InstanceType.of(ec2.InstanceClass.T3, ec2.InstanceSize.MICRO),
+      machineImage: ec2.MachineImage.latestAmazonLinux2023(),
+      vpc,
+      vpcSubnets: { subnetType: ec2.SubnetType.PUBLIC },
+      securityGroup: headscaleSecurityGroup,
+      role: headscaleRole,
+      userData: headscaleUserData,
+      associatePublicIpAddress: true,
+      blockDevices: [{
+        deviceName: '/dev/xvda',
+        volume: ec2.BlockDeviceVolume.ebs(8, { encrypted: true }),
+      }],
+    });
+
+    // Tag for easy identification
+    cdk.Tags.of(this.headscaleInstance).add('Service', 'headscale');
+
+    // Tailscale sidecar — coordinator joins the VPN mesh via EC2 Headscale
     const tailscaleContainer = this.taskDefinition.addContainer('tailscaled', {
       image: ecs.ContainerImage.fromRegistry('tailscale/tailscale:latest'),
       containerName: 'tailscaled',
@@ -317,22 +487,29 @@ export class ApplicationStack extends cdk.Stack {
       essential: false,
       environment: {
         'TS_STATE_DIR': '/var/lib/tailscale',
-        'TS_EXTRA_ARGS': '--login-server=http://localhost:8080',
+        // Points at EC2 Headscale instance (private IP within VPC)
+        'TS_EXTRA_ARGS': `--login-server=http://${this.headscaleInstance.instancePrivateIp}:8080`,
       },
     });
 
-    // Headscale coordination traffic (port 443)
-    this.serviceSecurityGroup.addIngressRule(
-      ec2.Peer.anyIpv4(),
-      ec2.Port.tcp(443),
-      'Allow Headscale coordination traffic'
-    );
+    // Add Headscale env vars to coordinator container
+    coordinatorContainer.addEnvironment('HEADSCALE_URL', `http://${this.headscaleInstance.instancePrivateIp}:8080`);
+    // API key will be read from Secrets Manager at runtime by the coordinator
+    // (the key is generated on first boot and stored in Secrets Manager)
+    coordinatorContainer.addEnvironment('HEADSCALE_API_KEY_SECRET_NAME', context.resourceName('headscale-api-key'));
 
-    // Tailscale WireGuard traffic (UDP 41641)
-    this.serviceSecurityGroup.addIngressRule(
-      ec2.Peer.anyIpv4(),
-      ec2.Port.udp(41641),
-      'Allow Tailscale WireGuard traffic'
+    // Allow coordinator task role to read the Headscale API key secret
+    taskRole.addToPolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: ['secretsmanager:GetSecretValue'],
+      resources: [`arn:aws:secretsmanager:${context.region}:*:secret:${context.resourceName('headscale-api-key')}*`],
+    }));
+
+    // Headscale coordination traffic from ECS to EC2 (within VPC)
+    headscaleSecurityGroup.addIngressRule(
+      this.serviceSecurityGroup,
+      ec2.Port.tcp(8080),
+      'Allow ECS coordinator to reach Headscale'
     );
 
     // FIXED: Define target AZ for consistent NLB and ECS placement (prevents AZ mismatch)
@@ -640,6 +817,25 @@ export class ApplicationStack extends cdk.Stack {
       value: `Dashboard: http://${this.loadBalancer.loadBalancerDnsName}/ | Streaming: http://${this.loadBalancer.loadBalancerDnsName}:8080/live/{stream}.m3u8 | RTMP: rtmp://${elasticIpAddress}:1935/live`,
       description: '🎯 ECS ENDPOINTS - All services via Load Balancers (RTMP via Static IP)',
       exportName: context.stackName('ecs-endpoints'),
+    });
+
+    // Headscale EC2 outputs
+    new cdk.CfnOutput(this, 'HeadscaleInstanceId', {
+      value: this.headscaleInstance.instanceId,
+      description: 'Headscale EC2 Instance ID (use SSM to connect)',
+      exportName: context.stackName('headscale-instance-id'),
+    });
+
+    new cdk.CfnOutput(this, 'HeadscalePrivateIP', {
+      value: this.headscaleInstance.instancePrivateIp,
+      description: 'Headscale EC2 Private IP (VPC-internal coordination)',
+      exportName: context.stackName('headscale-private-ip'),
+    });
+
+    new cdk.CfnOutput(this, 'HeadscalePublicURL', {
+      value: `http://<HEADSCALE_PUBLIC_IP>:8080`,
+      description: 'Headscale public URL for friend nodes (check EC2 console for public IP)',
+      exportName: context.stackName('headscale-public-url'),
     });
   }
 

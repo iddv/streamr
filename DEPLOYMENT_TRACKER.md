@@ -164,7 +164,7 @@
 
 | Issue | Severity | Mitigation |
 |-------|----------|------------|
-| Headscale container has `SET_VIA_SECRETS` placeholders | Medium | `essential: false` — won't crash. VPN mesh non-functional until configured |
+| Headscale EC2 not yet deployed | Medium | CDK code ready (Phase 9.1-9.7). Deploy with `cdk deploy` to create EC2 instance. API key auto-generated on first boot. |
 | ~~SRS custom config not mounted in ECS task def~~ | ~~Medium~~ | ✅ Fixed in `cab8402` — SRS container command writes custom config at startup |
 | Elastic IP hardcoded in CDK | ~~Low~~ | ✅ Fixed — parameterized via CDK context in Phase 2 |
 | No HTTPS without domain name | Medium | Beta runs HTTP. HTTPS requires `domainName` CDK context. Deferred until after friends testing. |
@@ -258,6 +258,51 @@ Viewer → /api/v1/watch → "friend_node" + proxy URL
 | D. Node reports public IP via STUN/external service | Medium | Node discovers its public IP at startup, reports it in heartbeats. Proxy uses public IP. Requires port forwarding on friend's router. |
 
 **Recommended for friends testing:** Option B (direct URL) — simplest, no proxy overhead, validates the core restreaming loop. The viewer page would get a direct URL to the friend's node instead of going through the coordinator proxy.
+
+---
+
+## Phase 9: Headscale VPN Mesh on EC2
+
+> Close the proxy gap — deploy Headscale on a dedicated EC2 instance so friend nodes get VPN IPs and the proxy can route viewer traffic through them.
+
+**Architecture Decision:** Headscale on EC2 (not ECS) because it's stateful — ECS rolling deploys would kill active VPN connections. EC2 is persistent, stable, always-on. t3.micro is plenty for 5-100 nodes (~$3-8/month).
+
+```
+Friend Node (Go binary)                    Coordinator (ECS)
+  ├── tsnet client ──────────────────┐        ├── Tailscale sidecar ──┐
+  │   (embedded, points at           │        │   (points at EC2      │
+  │    Headscale EC2)                │        │    Headscale)         │
+  │                                  ▼        │                       ▼
+  │                          ┌──────────────┐ │               ┌──────────────┐
+  │                          │  Headscale   │ │               │  Headscale   │
+  │                          │  EC2 (t3.micro)│               │  EC2         │
+  │                          │  :8080 coord │ │               │  :8080       │
+  │                          │  :3478 DERP  │ │               │              │
+  │                          │  Uses RDS PG │ │               │              │
+  │                          └──────────────┘ │               └──────────────┘
+  │                                           │
+  ├── Gets 100.64.x.x VPN IP                 ├── Gets 100.64.x.x VPN IP
+  ├── Reports vpn_ip in heartbeats            ├── Proxy resolves vpn_ip from Redis
+  └── Serves HLS on VPN :8080                 └── Proxies to http://100.64.x.x:8080
+```
+
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| 9.1 | CDK: Add EC2 instance for Headscale in VPC | ✅ | t3.micro, public subnet, AL2023, SSM access, user data installs Headscale v0.23.0 |
+| 9.2 | CDK: Security group for Headscale EC2 | ✅ | Inbound :8080 (coordination) + :3478/UDP (DERP). ECS→EC2 :8080 allowed. EC2→RDS :5432 via DB SG ingress rule. |
+| 9.3 | CDK: Headscale user data script | ✅ | Installs Headscale, fetches DB creds from Secrets Manager, creates `headscale` schema, writes config, starts systemd service, creates default user, generates API key |
+| 9.4 | CDK: Store Headscale API key in Secrets Manager | ✅ | User data generates key on first boot, stores in `streamr-p2p-beta-headscale-api-key`. Coordinator reads it at startup. |
+| 9.5 | CDK: Remove Headscale container from ECS task def | ✅ | Removed `essential:false` Headscale container — moved to EC2 |
+| 9.6 | CDK: Update Tailscale sidecar to point at EC2 Headscale | ✅ | `--login-server=http://{EC2_PRIVATE_IP}:8080` (VPC-internal) |
+| 9.7 | CDK: Pass `HEADSCALE_URL` and `HEADSCALE_API_KEY` env vars to coordinator | ✅ | `HEADSCALE_URL` → EC2 private IP. `HEADSCALE_API_KEY_SECRET_NAME` → Secrets Manager name. Coordinator reads key via boto3. |
+| 9.8 | Deploy CDK changes | ⬜ | `cdk deploy` — creates EC2, updates ECS task def |
+| 9.9 | Verify Headscale is running on EC2 | ⬜ | SSM into instance, check `systemctl status headscale`, test API |
+| 9.10 | Create Headscale user + generate API key | ⬜ | `headscale users create default`, `headscale apikeys create` |
+| 9.11 | Test: Node registration returns pre-auth key | ⬜ | Register node → response includes `headscale_auth_key` |
+| 9.12 | Test: Go client joins VPN mesh | ⬜ | Node receives key, tsnet connects, gets 100.64.x.x IP |
+| 9.13 | Test: Node reports vpn_ip in heartbeats | ⬜ | Heartbeat payload includes VPN IP, Redis state updated |
+| 9.14 | Test: Proxy routes to friend node over VPN | ⬜ | `GET /api/v1/proxy/{stream}/index.m3u8` → proxied to 100.64.x.x:8080 |
+| 9.15 | Test: Full E2E — OBS → SRS → Go node → proxy → viewer | ⬜ | Complete loop with VPN mesh active |
 
 ---
 

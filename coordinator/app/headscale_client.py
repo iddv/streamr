@@ -16,6 +16,33 @@ logger = logging.getLogger(__name__)
 
 HEADSCALE_URL = os.getenv("HEADSCALE_URL", "http://localhost:8080")
 HEADSCALE_API_KEY = os.getenv("HEADSCALE_API_KEY", "")
+HEADSCALE_API_KEY_SECRET_NAME = os.getenv("HEADSCALE_API_KEY_SECRET_NAME", "")
+
+
+def _resolve_api_key() -> str:
+    """
+    Resolve the Headscale API key.
+
+    Priority: HEADSCALE_API_KEY env var > Secrets Manager lookup > empty string.
+    """
+    # Direct env var takes precedence
+    if HEADSCALE_API_KEY:
+        return HEADSCALE_API_KEY
+
+    # Try Secrets Manager if secret name is configured
+    if HEADSCALE_API_KEY_SECRET_NAME:
+        try:
+            import boto3
+            client = boto3.client("secretsmanager", region_name=os.getenv("AWS_DEFAULT_REGION", "eu-west-1"))
+            resp = client.get_secret_value(SecretId=HEADSCALE_API_KEY_SECRET_NAME)
+            key = resp.get("SecretString", "")
+            if key:
+                logger.info("Loaded Headscale API key from Secrets Manager (%s)", HEADSCALE_API_KEY_SECRET_NAME)
+                return key
+        except Exception:
+            logger.warning("Failed to load Headscale API key from Secrets Manager", exc_info=True)
+
+    return ""
 
 
 class HeadscaleClient:
@@ -27,7 +54,7 @@ class HeadscaleClient:
         api_key: Optional[str] = None,
     ):
         self.base_url = (base_url or HEADSCALE_URL).rstrip("/")
-        self.api_key = api_key or HEADSCALE_API_KEY
+        self.api_key = api_key or _resolve_api_key()
         self._client = httpx.AsyncClient(
             base_url=self.base_url,
             timeout=10.0,

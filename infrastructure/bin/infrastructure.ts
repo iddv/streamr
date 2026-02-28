@@ -61,6 +61,7 @@ const foundationStack = new FoundationStack(app, context.stackName('foundation')
 const applicationStack = new ApplicationStack(app, context.stackName('application'), {
   context,
   vpc: foundationStack.vpc,
+  database: foundationStack.database,
   dbSecurityGroup: foundationStack.dbSecurityGroup,
   cacheSecurityGroup: foundationStack.cacheSecurityGroup,
   deploymentBucket: foundationStack.deploymentBucket,

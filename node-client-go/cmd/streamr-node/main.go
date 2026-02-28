@@ -88,7 +88,7 @@ func main() {
 	if regResp.HeadscaleAuthKey != "" {
 		meshNode = mesh.NewMeshNode(log)
 		meshCtx, meshCancel := context.WithTimeout(context.Background(), 60*time.Second)
-		err := meshNode.Join(meshCtx, regResp.HeadscaleAuthKey, nodeID, "")
+		err := meshNode.Join(meshCtx, regResp.HeadscaleAuthKey, nodeID, regResp.HeadscaleURL)
 		meshCancel()
 		if err != nil {
 			log.WithField("operation", "mesh_join").WithError(err).Warn("Failed to join VPN mesh — continuing without mesh")
