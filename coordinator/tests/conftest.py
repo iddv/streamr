@@ -109,6 +109,8 @@ def test_redis():
 @pytest.fixture()
 def client(test_db):
     """TestClient with DB dependency overridden to use test_db."""
+    from slowapi import Limiter
+    from slowapi.util import get_remote_address
     from app import main as _main_mod
     from app.main import app
 
@@ -116,8 +118,15 @@ def client(test_db):
     # lifespan doesn't collide with other tests or fail on event-loop reuse.
     _main_mod.scheduler = type(_main_mod.scheduler)()
 
-    # Use in-memory rate limiter storage so tests don't need Redis.
-    _main_mod.limiter._storage_uri = "memory://"
+    # Replace the limiter with one using in-memory storage (no Redis needed).
+    # Setting _storage_uri alone doesn't work — the RedisStorage backend is
+    # already instantiated at import time.
+    _main_mod.limiter = Limiter(
+        key_func=get_remote_address,
+        default_limits=["1000/minute"],
+        storage_uri="memory://",
+    )
+    app.state.limiter = _main_mod.limiter
 
     def _override_get_db():
         try:
