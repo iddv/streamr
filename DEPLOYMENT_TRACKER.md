@@ -171,6 +171,8 @@
 | ~~SRS_HOST defaults to `localhost` in viewer routing~~ | ~~High~~ | ✅ Fixed in `cab8402` — `_build_srs_url()` reads request Host header |
 | ~~Node economics endpoint uses node_id as user_id~~ | ~~Low~~ | ✅ Fixed in `cab8402` — resolves node_id → user_id via Node table |
 | ~~Uncommitted local changes~~ | ~~Medium~~ | ✅ All changes committed and pushed |
+| Proxy can't reach nodes without VPN | High | Proxy resolves `vpn_ip` from Redis — empty without Headscale. Falls back to SRS every time. Viewer routing says `friend_node` but proxy silently serves SRS. See "Proxy Gap" section below. |
+| SRS master playlist intermittently empty | Low | `#EXT-X-STREAM-INF` line present but variant URL sometimes missing. Go client retries every 2s, self-heals. SRS timing issue, not a blocker. |
 
 ---
 
@@ -227,14 +229,35 @@ OBS → RTMP → [NLB:1935] → [SRS] → HLS segments
 | 8.9 | Node capacity saturation | ⬜ | Deferred — capacity limiting verified in Go unit tests (503 at max_viewers). Full E2E not critical for friends testing. |
 | 8.10 | Friend Quick Start guide accuracy | ⬜ | Update FRIEND_QUICK_START.md with validated commands and test. |
 
-### Critical Gap: VPN Mesh vs Direct Access
+### Critical Gap: Proxy Can't Reach Friend Nodes (No VPN)
 
-The proxy endpoint (`/api/v1/proxy/{stream_id}/{path}`) routes to nodes via `vpn_ip`. Without Headscale configured, this path won't work. Two options:
+**The Problem:**
+The viewer routing API correctly identifies a friend node (`source_type: friend_node`) and returns the proxy URL (`/api/v1/proxy/{stream_id}/index.m3u8`). But the proxy endpoint looks up the node's `vpn_ip` from Redis, finds it empty (no Headscale VPN configured), and silently falls back to serving SRS content. The viewer thinks they're watching via a friend node, but they're actually getting SRS direct.
 
-1. **Configure Headscale** — Full VPN mesh, nodes get 100.x.x.x IPs, proxy works as designed
-2. **Direct access mode** — Nodes expose HLS on public IP:port, viewers connect directly (no proxy needed). Simpler for friends testing but requires port forwarding.
+**Why it matters:** This breaks the core value prop — friends run nodes, but viewers never actually get content from them. Bandwidth reports still flow (the node is fetching from SRS), but the restreaming loop isn't closed.
 
-For friends testing, option 2 (direct access) is simpler and validates the core value prop without VPN complexity. The Go node already serves HLS on `:8080` — friends just need their public IP + port forwarding.
+**Current flow (broken):**
+```
+Viewer → /api/v1/watch → "friend_node" + proxy URL
+      → /api/v1/proxy → lookup vpn_ip → EMPTY → fallback to SRS
+      → Viewer gets SRS content (not friend node content)
+```
+
+**Where the data lives:**
+- Redis `stream:{stream_id}:nodes` stores: `vpn_ip`, `trust_score`, `capacity_pct`, `viewer_count`, `last_heartbeat`
+- `stats_url` (e.g. `http://localhost:9090`) is stored in PostgreSQL `nodes` table but NOT in Redis
+- Proxy only checks Redis for `vpn_ip`
+
+**Fix Options:**
+
+| Option | Complexity | Description |
+|--------|-----------|-------------|
+| A. Store `stats_url` in Redis, proxy uses it as fallback | Low | Add `stats_url` to `update_node_state()`. Proxy tries `vpn_ip` first, then `stats_url`. Works if node has a routable IP (public IP + port forwarding). |
+| B. Viewer routing returns node URL directly (skip proxy) | Low | When node has no `vpn_ip` but has `stats_url`, return `stats_url` as `source_url` instead of proxy path. Viewer connects directly to node. |
+| C. Configure Headscale VPN mesh | High | Full VPN setup — nodes get 100.x.x.x IPs, proxy works as designed. Production-grade but complex for friends testing. |
+| D. Node reports public IP via STUN/external service | Medium | Node discovers its public IP at startup, reports it in heartbeats. Proxy uses public IP. Requires port forwarding on friend's router. |
+
+**Recommended for friends testing:** Option B (direct URL) — simplest, no proxy overhead, validates the core restreaming loop. The viewer page would get a direct URL to the friend's node instead of going through the coordinator proxy.
 
 ---
 
