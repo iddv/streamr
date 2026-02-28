@@ -472,6 +472,7 @@ export class ApplicationStack extends cdk.Stack {
 
     // Tag for easy identification
     cdk.Tags.of(this.headscaleInstance).add('Service', 'headscale');
+    cdk.Tags.of(this.headscaleInstance).add('DeployVersion', '2');
 
     // Tailscale sidecar — coordinator joins the VPN mesh via EC2 Headscale
     const tailscaleContainer = this.taskDefinition.addContainer('tailscaled', {
