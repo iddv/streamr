@@ -7,6 +7,7 @@ on:
       - 'infrastructure/**'
       - 'coordinator/**'
       - 'tests/**'
+      - 'node-client-go/**'
       - '.github/workflows/deploy.yml'
   pull_request:
     branches: [ main ]
@@ -14,6 +15,7 @@ on:
       - 'infrastructure/**'
       - 'coordinator/**'
       - 'tests/**'
+      - 'node-client-go/**'
   workflow_dispatch:
     inputs:
       stage:
@@ -36,9 +38,40 @@ permissions:
 
 jobs:
   # ---------------------------------------------------------------------------
+  # Detect which components changed to skip unnecessary jobs
+  # ---------------------------------------------------------------------------
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      coordinator: ${{ steps.filter.outputs.coordinator }}
+      infrastructure: ${{ steps.filter.outputs.infrastructure }}
+      go-client: ${{ steps.filter.outputs.go-client }}
+      tests: ${{ steps.filter.outputs.tests }}
+      needs-deploy: ${{ steps.filter.outputs.infrastructure == 'true' || steps.filter.outputs.coordinator == 'true' }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Detect changes
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            coordinator:
+              - 'coordinator/**'
+            infrastructure:
+              - 'infrastructure/**'
+            go-client:
+              - 'node-client-go/**'
+            tests:
+              - 'tests/**'
+
+  # ---------------------------------------------------------------------------
   # Pre-deploy: Run coordinator unit tests (including DB-dependent tests)
   # ---------------------------------------------------------------------------
   unit-tests:
+    needs: changes
+    if: needs.changes.outputs.coordinator == 'true' || needs.changes.outputs.tests == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -84,6 +117,8 @@ jobs:
   # Go client tests
   # ---------------------------------------------------------------------------
   go-tests:
+    needs: changes
+    if: needs.changes.outputs.go-client == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -93,13 +128,23 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.23'
+          cache-dependency-path: node-client-go/go.sum
 
       - name: Run Go tests
         working-directory: node-client-go
         run: go test ./... -v
 
+  # ---------------------------------------------------------------------------
+  # Deploy — only when infrastructure or coordinator code changed
+  # ---------------------------------------------------------------------------
   deploy:
-    needs: [unit-tests, go-tests]
+    needs: [changes, unit-tests, go-tests]
+    # Run if deployable code changed, OR manual trigger. Skip for CI-only changes.
+    # 'always()' ensures we evaluate even when skipped optional jobs didn't run.
+    if: |
+      always() &&
+      !contains(needs.*.result, 'failure') &&
+      (needs.changes.outputs.needs-deploy == 'true' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -121,6 +166,9 @@ jobs:
           echo "Prod Account ID: ${{ vars.AWS_ACCOUNT_ID_PROD }}"
           echo "GitHub Run ID: ${{ github.run_id }}"
           echo "GitHub Ref: ${{ github.ref }}"
+          echo "Changes — coordinator: ${{ needs.changes.outputs.coordinator }}"
+          echo "Changes — infrastructure: ${{ needs.changes.outputs.infrastructure }}"
+          echo "Changes — go-client: ${{ needs.changes.outputs.go-client }}"
 
       - name: Configure AWS credentials using OIDC
         uses: aws-actions/configure-aws-credentials@v4
@@ -236,6 +284,9 @@ jobs:
           echo "🏆 Leaderboard: http://$ALB_DNS/leaderboard"
           echo "💰 Payouts: http://$ALB_DNS/payouts"
 
+  # ---------------------------------------------------------------------------
+  # Post-deploy sanity & integration tests
+  # ---------------------------------------------------------------------------
   post-deploy-tests:
     needs: deploy
     runs-on: ubuntu-latest
@@ -343,4 +394,4 @@ jobs:
           if [ $? -eq 0 ]; then
             echo "✅ Smoke tests passed, running lifecycle validation..."
             ./scripts/run-integration-tests.sh "$COORDINATOR_URL" lifecycle
-          fi 
+          fi
