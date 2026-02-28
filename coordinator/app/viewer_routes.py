@@ -77,6 +77,22 @@ def _viewer_key(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
+def _build_srs_url(request: Request, stream_id: str) -> str:
+    """
+    Build a browser-reachable SRS HLS URL.
+
+    Uses the incoming request's Host header (the ALB DNS the viewer used)
+    and swaps the port to SRS_PORT so the browser can reach SRS via the
+    ALB's :8080 listener.  Falls back to SRS_HOST env var for non-browser
+    callers (e.g. Go node client running inside the VPC).
+    """
+    request_host = request.headers.get("host", "")
+    # Strip any existing port from the Host header
+    hostname = request_host.split(":")[0] if request_host else SRS_HOST
+    scheme = "https" if request.headers.get("x-forwarded-proto") == "https" else "http"
+    return f"{scheme}://{hostname}:{SRS_PORT}/live/{stream_id}.m3u8"
+
+
 @router.get("/api/v1/watch/{stream_id}")
 async def watch_stream(stream_id: str, request: Request):
     """
@@ -99,7 +115,7 @@ async def watch_stream(stream_id: str, request: Request):
     # Fallback to SRS
     _log_fallback(stream_id, "no_active_nodes")
     return {
-        "source_url": f"http://{SRS_HOST}:{SRS_PORT}/live/{stream_id}.m3u8",
+        "source_url": _build_srs_url(request, stream_id),
         "source_type": "srs",
         "node_id": None,
     }

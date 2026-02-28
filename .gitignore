@@ -131,6 +131,7 @@ dmypy.json
 
 # Project specific
 advisor_outputs/
+*.db
 
 # Dependencies
 rtmp_relay/ 

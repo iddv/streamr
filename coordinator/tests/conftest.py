@@ -7,6 +7,9 @@ Provides:
 - test_redis: isolated Redis client (port 6380)
 - client: FastAPI TestClient with dependency overrides
 - mock services for PayoutService, SpotCheckProber, etc.
+
+DB-dependent tests auto-skip when PostgreSQL is unavailable (local dev).
+CI provides PostgreSQL via service container so the full suite runs there.
 """
 
 import os
@@ -35,12 +38,33 @@ from app.database import get_db
 
 
 # ---------------------------------------------------------------------------
+# Auto-detect PostgreSQL availability
+# ---------------------------------------------------------------------------
+
+def _pg_is_available() -> bool:
+    """Try to connect to the test PostgreSQL instance."""
+    try:
+        eng = create_engine(TEST_DATABASE_URL, connect_args={"connect_timeout": 2})
+        conn = eng.connect()
+        conn.close()
+        eng.dispose()
+        return True
+    except Exception:
+        return False
+
+
+_PG_AVAILABLE = _pg_is_available()
+
+
+# ---------------------------------------------------------------------------
 # Database fixtures
 # ---------------------------------------------------------------------------
 
 @pytest.fixture(scope="session")
 def engine():
-    """Create a test engine once per session."""
+    """Create a test engine once per session. Skips if PostgreSQL unavailable."""
+    if not _PG_AVAILABLE:
+        pytest.skip("PostgreSQL not available — DB tests run in CI")
     eng = create_engine(TEST_DATABASE_URL)
     Base.metadata.create_all(bind=eng)
     yield eng

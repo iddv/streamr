@@ -52,9 +52,17 @@ def recalculate_and_store(node_id: str, db: Session) -> Decimal:
     """Recalculate trust score and persist it on the UserAccount row."""
     score = calculate_trust_score(node_id, db)
 
+    # Resolve node_id → user_id via Node table
+    node = (
+        db.query(models.Node)
+        .filter(models.Node.node_id == node_id)
+        .first()
+    )
+    user_id = node.user_id if node else node_id
+
     account = (
         db.query(models.UserAccount)
-        .filter(models.UserAccount.user_id == node_id)
+        .filter(models.UserAccount.user_id == user_id)
         .first()
     )
     if account:

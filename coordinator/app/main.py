@@ -716,21 +716,24 @@ async def get_economics_dashboard(db: Session = Depends(get_db)):
         suspicious_activity=suspicious_activity
     )
 
-@app.get("/api/v1/economics/node/{node_id}", response_model=schemas.NodeEconomics)
 async def get_node_economics(node_id: str, db: Session = Depends(get_db)):
     """
     Detailed economic data for a specific node.
     Includes live trust score calculation.
     """
+    # Resolve node_id → user_id via the Node table
+    node = db.query(models.Node).filter(models.Node.node_id == node_id).first()
+    user_id = node.user_id if node else node_id
+
     # Get or create user account
     user_account = db.query(models.UserAccount).filter(
-        models.UserAccount.user_id == node_id
+        models.UserAccount.user_id == user_id
     ).first()
-    
+
     if not user_account:
         # Create default account if doesn't exist
         user_account = models.UserAccount(
-            user_id=node_id,
+            user_id=user_id,
             balance_usd=Decimal("0.00"),
             total_gb_relayed=Decimal("0.00"),
             earnings_last_30d=Decimal("0.00"),
@@ -749,13 +752,13 @@ async def get_node_economics(node_id: str, db: Session = Depends(get_db)):
         user_account.last_updated_at = datetime.now(timezone.utc)
         apply_trust_consequences(node_id, live_trust, db)
         db.commit()
-    
+
     # Calculate hourly earnings for last 24 hours from payout_log_entries
     hourly_earnings = []
     for i in range(24):
         hour_start = datetime.now(timezone.utc) - timedelta(hours=i+1)
         hour_end = datetime.now(timezone.utc) - timedelta(hours=i)
-        
+
         hour_entry = db.query(
             func.sum(models.PayoutLogEntry.earnings_usd).label("earnings"),
             func.sum(models.PayoutLogEntry.bytes_relayed).label("bytes"),
@@ -770,7 +773,7 @@ async def get_node_economics(node_id: str, db: Session = Depends(get_db)):
             "earnings_usd": float(hour_entry.earnings or 0),
             "gb_relayed": float((hour_entry.bytes or 0) / (1024**3)),
         })
-    
+
     return schemas.NodeEconomics(
         node_id=node_id,
         balance_usd=user_account.balance_usd,

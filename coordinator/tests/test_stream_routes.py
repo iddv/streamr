@@ -11,9 +11,11 @@ import os
 
 # Must set DATABASE_URL before any app imports to avoid psycopg2 dependency
 os.environ["DATABASE_URL"] = "sqlite:///./test_stream_routes.db"
+# Disable Redis-backed rate limiter (no Redis in test env)
+os.environ.pop("REDIS_URL", None)
 
 import secrets
-from datetime import datetime, timezone
+from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -22,6 +24,15 @@ from sqlalchemy.orm import sessionmaker
 
 from app.auth import AuthenticatedUser, encode_jwt
 from app.database import get_db
+
+# Patch the scheduler before importing app so the lifespan is harmless
+import app.main as _main_module
+
+_main_module.scheduler = type(_main_module.scheduler)()  # fresh scheduler instance
+
+# Also neuter the limiter — use memory storage so no Redis needed
+_main_module.limiter._storage_uri = "memory://"
+
 from app.main import app
 from app.models import Base, Stream, StreamAuthorization, UserIdentity
 
@@ -59,8 +70,6 @@ def override_get_db():
 
 app.dependency_overrides[get_db] = override_get_db
 
-client = TestClient(app)
-
 
 @pytest.fixture(autouse=True)
 def setup_db():
@@ -77,6 +86,13 @@ def db():
         yield db
     finally:
         db.close()
+
+
+@pytest.fixture(scope="module")
+def client():
+    """Single TestClient for the whole module — avoids scheduler lifecycle issues."""
+    with TestClient(app, raise_server_exceptions=False) as c:
+        yield c
 
 
 # ---------------------------------------------------------------------------
@@ -137,7 +153,7 @@ def _node_token(user: UserIdentity, node_id: str = "node-1") -> dict:
 
 
 class TestAuthorizeNode:
-    def test_authorize_node_success(self, db):
+    def test_authorize_node_success(self, db, client):
         streamer = _create_streamer(db)
         stream = _create_stream(db, streamer)
         node_user = _create_node_user(db)
@@ -153,7 +169,7 @@ class TestAuthorizeNode:
         assert data["user_id"] == node_user.user_id
         assert data["authorized_by"] == streamer.user_id
 
-    def test_authorize_node_duplicate(self, db):
+    def test_authorize_node_duplicate(self, db, client):
         streamer = _create_streamer(db)
         stream = _create_stream(db, streamer)
         node_user = _create_node_user(db)
@@ -170,7 +186,7 @@ class TestAuthorizeNode:
         )
         assert resp.status_code == 409
 
-    def test_authorize_node_not_owner(self, db):
+    def test_authorize_node_not_owner(self, db, client):
         streamer = _create_streamer(db)
         stream = _create_stream(db, streamer)
         other = UserIdentity(
@@ -190,7 +206,7 @@ class TestAuthorizeNode:
         )
         assert resp.status_code == 403
 
-    def test_authorize_node_stream_not_found(self, db):
+    def test_authorize_node_stream_not_found(self, db, client):
         streamer = _create_streamer(db)
         resp = client.post(
             "/api/v1/streams/nonexistent/authorize-node",
@@ -199,7 +215,7 @@ class TestAuthorizeNode:
         )
         assert resp.status_code == 404
 
-    def test_authorize_node_user_not_found(self, db):
+    def test_authorize_node_user_not_found(self, db, client):
         streamer = _create_streamer(db)
         stream = _create_stream(db, streamer)
         resp = client.post(
@@ -209,7 +225,7 @@ class TestAuthorizeNode:
         )
         assert resp.status_code == 404
 
-    def test_authorize_node_requires_streamer_role(self, db):
+    def test_authorize_node_requires_streamer_role(self, db, client):
         streamer = _create_streamer(db)
         stream = _create_stream(db, streamer)
         node_user = _create_node_user(db)
@@ -228,7 +244,7 @@ class TestAuthorizeNode:
 
 
 class TestRegenerateKey:
-    def test_regenerate_key_success(self, db):
+    def test_regenerate_key_success(self, db, client):
         streamer = _create_streamer(db)
         stream = _create_stream(db, streamer)
         old_key = stream.stream_key
@@ -243,7 +259,7 @@ class TestRegenerateKey:
         assert data["stream_key"] != old_key
         assert len(data["stream_key"]) > 20
 
-    def test_regenerate_key_not_owner(self, db):
+    def test_regenerate_key_not_owner(self, db, client):
         streamer = _create_streamer(db)
         stream = _create_stream(db, streamer)
         other = UserIdentity(
@@ -261,7 +277,7 @@ class TestRegenerateKey:
         )
         assert resp.status_code == 403
 
-    def test_regenerate_key_stream_not_found(self, db):
+    def test_regenerate_key_stream_not_found(self, db, client):
         streamer = _create_streamer(db)
         resp = client.post(
             "/api/v1/streams/nonexistent/regenerate-key",
@@ -276,7 +292,7 @@ class TestRegenerateKey:
 
 
 class TestSrsOnPublish:
-    def test_on_publish_valid_key(self, db):
+    def test_on_publish_valid_key(self, db, client):
         streamer = _create_streamer(db)
         stream = _create_stream(db, streamer)
 
@@ -286,28 +302,28 @@ class TestSrsOnPublish:
         )
         assert resp.status_code == 200
 
-    def test_on_publish_invalid_key(self, db):
+    def test_on_publish_invalid_key(self, db, client):
         resp = client.post(
             "/api/v1/srs/on-publish",
             json={"param": "?key=totally-invalid-key"},
         )
         assert resp.status_code == 403
 
-    def test_on_publish_missing_key(self, db):
+    def test_on_publish_missing_key(self, db, client):
         resp = client.post(
             "/api/v1/srs/on-publish",
             json={"param": ""},
         )
         assert resp.status_code == 403
 
-    def test_on_publish_no_param(self, db):
+    def test_on_publish_no_param(self, db, client):
         resp = client.post(
             "/api/v1/srs/on-publish",
             json={},
         )
         assert resp.status_code == 403
 
-    def test_on_publish_key_without_question_mark(self, db):
+    def test_on_publish_key_without_question_mark(self, db, client):
         streamer = _create_streamer(db)
         stream = _create_stream(db, streamer)
 

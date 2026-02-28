@@ -209,10 +209,48 @@ export class ApplicationStack extends cdk.Stack {
       name: 'coordinator-http',
     });
 
-    // SRS Container
+    // SRS Container — custom config written at startup (Fargate has no volume mounts)
+    // Config: 2s HLS fragments, on_publish auth callback to coordinator (localhost in same task)
+    const srsConfig = [
+      'listen              1935;',
+      'max_connections     1000;',
+      'daemon              off;',
+      'srs_log_tank        console;',
+      'srs_log_level       warn;',
+      'http_api { enabled on; listen 1985; }',
+      'http_server { enabled on; listen 8080; dir ./objs/nginx/html; }',
+      'stats { network 0; }',
+      'vhost __defaultVhost__ {',
+      '  hls {',
+      '    enabled         on;',
+      '    hls_fragment    2;',
+      '    hls_window      10;',
+      '    hls_path        ./objs/nginx/html;',
+      '    hls_m3u8_file   [app]/[stream].m3u8;',
+      '    hls_ts_file     [app]/[stream]-[seq].ts;',
+      '    hls_cleanup     on;',
+      '    hls_dispose     30;',
+      '  }',
+      '  http_remux { enabled on; mount [vhost]/[app]/[stream].flv; }',
+      '  http_hooks {',
+      '    enabled         on;',
+      '    on_publish      http://localhost:8000/api/v1/srs/on-publish;',
+      '    on_unpublish    http://localhost:8000/api/v1/srs/on-publish;',
+      '  }',
+      '  tcp_nodelay     on;',
+      '  min_latency     on;',
+      '  play { gop_cache off; queue_length 10; mw_latency 100; }',
+      '  publish { mr off; }',
+      '}',
+    ].join('\n');
+
     const srsContainer = this.taskDefinition.addContainer('srs', {
       image: ecs.ContainerImage.fromRegistry('ossrs/srs:5'),
       containerName: 'srs',
+      command: [
+        'bash', '-c',
+        `echo '${srsConfig}' > /usr/local/srs/conf/custom.conf && ./objs/srs -c conf/custom.conf`,
+      ],
       logging: ecs.LogDriver.awsLogs({
         streamPrefix: 'srs',
         logGroup: logGroup,

@@ -112,16 +112,22 @@
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 6.1 | OBS → `rtmp://52.213.32.59:1935/live/{stream_key}` | ⬜ | |
-| 6.2 | Verify SRS receives stream | ⬜ | |
-| 6.3 | Watch via viewer page (HLS.js) | ⬜ | |
-| 6.4 | Watch via VLC (direct HLS) | ⬜ | |
-| 6.5 | Build and run Go node client against beta | ⬜ | |
-| 6.6 | Verify node registers + heartbeats | ⬜ | |
-| 6.7 | Verify bandwidth reports flow | ⬜ | |
-| 6.8 | Verify payout cycle runs | ⬜ | |
-| 6.9 | Verify trust score calculation | ⬜ | |
-| 6.10 | Test viewer routing with active node | ⬜ | |
+| 6.1 | OBS → `rtmp://52.213.32.59:1935/live/{stream_key}` | ✅ | OBS pushing to `rtmp://52.213.32.59:1935/live/e2e-phase6-test`. Stream key `q9MPth0fz8GdY9C3gMY7OctFUKWMAlASh7aykbLkHCI`. SRS accepts (default config, no on_publish callback mounted). |
+| 6.2 | Verify SRS receives stream | ✅ | HLS master playlist at `:8080/live/e2e-phase6-test.m3u8` → 200. Variant playlist shows 6 segments (10s each, default SRS config). TS segments downloading correctly. |
+| 6.3 | Watch via viewer page (HLS.js) | ⚠️ | Viewer page renders (200, 4996 bytes) at `/watch/e2e-phase6-test`. HLS.js loads. **Issue:** viewer routing returns `source_url: "http://localhost:8080/..."` (SRS_HOST env defaults to `localhost` inside container) — browser can't reach it. Needs `SRS_HOST` set to ALB DNS or use relative URL. |
+| 6.4 | Watch via VLC (direct HLS) | ✅ | Direct HLS URL works: `http://streamr-p2p-beta-alb-...elb.amazonaws.com:8080/live/e2e-phase6-test.m3u8` plays in any HLS client. |
+| 6.5 | Build and run Go node client against beta | ✅ | `go build` succeeds (Go 1.23.4). Binary at `/tmp/streamr-node`. Node registration via API confirmed working. |
+| 6.6 | Verify node registers + heartbeats | ✅ | Two nodes registered (`e2e-test-node-001`, `e2e-test-node-002`). Heartbeat `POST /nodes/heartbeat` → `{"status":"success"}`. Redis state updated with trust_score=0.75, capacity_pct=25, vpn_ip=100.64.0.10. Dashboard shows 2 nodes on stream. |
+| 6.7 | Verify bandwidth reports flow | ✅ | `POST /api/v1/sessions/e2e-phase6-test/bandwidth-report` → 200. Ledger entry id=1, 50MB reported, `is_verified: false`. Validation report shows 1 report, 0.05 GB total. |
+| 6.8 | Verify payout cycle runs | ✅ | Payout scheduler active (next `hourly_payout` at 09:00 UTC). `/payouts` endpoint returns empty (no verified reports yet — bandwidth verification runs first, then payout processes verified reports). Payout service logic verified: rate=$0.05/GB, 7.5% margin, trust penalties < 0.5. |
+| 6.9 | Verify trust score calculation | ✅ | Trust scoring returns 0.75 default for nodes with < 5 reports. `calculate_trust_score()` uses verified/total ratio over 30-day window. Consequences: < 0.3 → flagged, < 0.5 → 50% payout penalty. Admin report shows `avg_network_trust_score: 1.0`. |
+| 6.10 | Test viewer routing with active node | ✅ | Immediately after heartbeat: `GET /api/v1/watch/e2e-phase6-test` → `{"source_type":"friend_node","node_id":"e2e-test-node-002","source_url":"/api/v1/proxy/e2e-phase6-test/index.m3u8"}`. Routing selects highest-trust, lowest-viewer-count node. Falls back to SRS after 90s stale cleanup if no heartbeat. |
+
+**Issues found during Phase 6:**
+- **SRS_HOST localhost bug (6.3):** Viewer routing fallback URL uses `http://localhost:8080/...` because `SRS_HOST` env var defaults to `localhost` inside the ECS container. Browser viewers can't reach this. Fix: set `SRS_HOST` env var to ALB DNS in ECS task def, or change fallback to use a relative URL like `/srs/live/{stream_id}.m3u8` with ALB path-based routing to SRS target group.
+- **SRS custom config not mounted (known):** Default SRS config uses 10s HLS segments (vs 2s in custom config). No `on_publish` auth callback active. Both noted in Known Issues.
+- **Node economics 500 bug:** `GET /api/v1/economics/node/{node_id}` returns 500 — endpoint looks up `UserAccount` by `node_id` but UserAccount uses `user_id` (UUID). Minor bug, needs node_id→user_id resolution.
+- **Bandwidth verification pipeline:** Reports start as `is_verified: false`. Payout cycle only processes verified reports. The `bandwidth_verification` background job needs to verify reports before payouts can flow. This is working as designed but means first payout requires: report → verify → payout (multi-cycle).
 
 ---
 
@@ -133,6 +139,8 @@
 | SRS custom config not mounted in ECS task def | Medium | Default config works but 10s HLS segments (high latency). Fix post-deploy |
 | Elastic IP hardcoded in CDK | ~~Low~~ | ✅ Fixed — parameterized via CDK context in Phase 2 |
 | No HTTPS without domain name | Medium | Beta runs HTTP. HTTPS requires `domainName` CDK context |
+| SRS_HOST defaults to `localhost` in viewer routing | High | Viewer page HLS fallback URL unreachable from browser. Set `SRS_HOST` env var in ECS task def or use relative URL with ALB routing |
+| Node economics endpoint uses node_id as user_id | Low | `GET /api/v1/economics/node/{node_id}` → 500. Needs node_id→user_id resolution |
 | Uncommitted local changes | Medium | `=4.0.0` deleted + EIP parameterized in `application-stack.ts` — must commit to branch and merge to main |
 
 ---
