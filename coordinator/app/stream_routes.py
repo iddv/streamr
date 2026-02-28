@@ -205,6 +205,25 @@ async def srs_on_publish(request: Request, db: Session = Depends(get_db)):
     # SRS expects JSON with code=0 to allow publish
     return JSONResponse(status_code=200, content={"code": 0})
 
+@router.post("/api/v1/srs/on-unpublish")
+async def srs_on_unpublish(request: Request, db: Session = Depends(get_db)):
+    """
+    SRS on_unpublish HTTP callback — stream stopped.
+
+    Logs the event and returns code=0 (SRS requires a 200 response).
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+
+    stream_name = body.get("stream", "unknown")
+    logger.info("SRS on_unpublish: stream=%s", stream_name)
+
+    # SRS expects code=0 acknowledgement
+    return JSONResponse(status_code=200, content={"code": 0})
+
+
 
 # ---------------------------------------------------------------------------
 # Internal helpers

@@ -341,7 +341,38 @@ The entire value proposition — friends relaying stream chunks to reduce bandwi
 
 ---
 
-## 8. First Action: Verify Current State
+## 8. Investigation Backlog
+
+### 8.1 — Deployment Drops RTMP Stream Without OBS Error
+
+**Discovered**: Phase 8 E2E testing (2026-02-28, commit `69cc87f`)
+
+**Symptoms**:
+- OBS shows "Live" throughout the entire ECS rolling deployment — no error, no disconnect indicator
+- After deployment completes, VLC viewer fails (empty HLS master playlist, no segments)
+- OBS still thinks it's streaming; user can click "End Stream" normally
+- Restarting the stream in OBS after deploy restores HLS playback
+
+**Root Cause (hypothesis)**:
+- ECS rolling update stops the old task (kills SRS container), NLB deregisters the old target
+- The NLB TCP connection to OBS doesn't cleanly RST — OBS keeps sending RTMP data into a half-open socket
+- New SRS container starts fresh with no RTMP publisher, so no HLS segments are generated
+- The stale master playlist (`#EXT-X-STREAM-INF` with no variant URL) persists from the old SRS instance's initial publish
+
+**Impact**: Medium — streamers must manually restart OBS after every deploy. Friends testing will hit this.
+
+**Investigation needed**:
+1. Check NLB connection draining settings (default 300s) — does it send RST to existing connections?
+2. Check if OBS auto-reconnect is enabled by default and whether it detects the dead connection
+3. Consider adding a pre-deploy webhook that sends RTMP disconnect to OBS (not standard)
+4. Consider `minimumHealthyPercent: 100` + `maximumPercent: 200` on ECS service to keep old task alive until new one is healthy (but RTMP state still can't migrate)
+5. Long-term: evaluate blue/green deployment with DNS switchover for zero-downtime streaming
+
+**Workaround**: Restart stream in OBS after each deployment.
+
+---
+
+## 9. First Action: Verify Current State
 
 Before writing any code, run these checks:
 

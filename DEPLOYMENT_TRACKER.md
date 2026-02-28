@@ -131,17 +131,110 @@
 
 ---
 
+## Phase 7: CI Pipeline & Test Hardening ✅
+
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| 7.1 | Add `unit-tests` job with PostgreSQL service container | ✅ | Port 5433, 77 tests pass (unit + stream routes) |
+| 7.2 | Add `go-tests` job | ✅ | 30 tests pass across 6 packages |
+| 7.3 | Deploy job requires both test jobs to pass | ✅ | `needs: [unit-tests, go-tests]` |
+| 7.4 | Fix SQLAlchemy 2.0 `func.case()` → `case()` | ✅ | `data_retention.py` |
+| 7.5 | Fix ProbeResult join missing ON clause | ✅ | `spot_check_prober.py` |
+| 7.6 | Fix slowapi limiter Redis dependency in tests | ✅ | Replace limiter object entirely with `memory://` storage |
+| 7.7 | Fix APScheduler singleton collision in tests | ✅ | Fresh scheduler instance before app import |
+| 7.8 | Split test invocations (unit vs stream routes) | ✅ | Separate pytest runs to avoid module state conflicts |
+| 7.9 | DB-dependent tests auto-skip locally | ✅ | `_pg_is_available()` check, 50 tests skip locally, run in CI |
+| 7.10 | Smart change detection (dorny/paths-filter) | ✅ | Skip deploy for CI-only changes, skip tests for unrelated changes |
+| 7.11 | Fix Go cache-dependency-path warning | ✅ | `node-client-go/go.sum` |
+| 7.12 | Add `node-client-go/**` to workflow trigger paths | ✅ | Go changes now trigger CI |
+
+**Commits:**
+- `cab8402` — Phase 6 bugs + CI pipeline with pre-deploy tests
+- `a8506a2` — SQLAlchemy 2.0 compat + scheduler isolation + split test invocations
+- `6f7e8ba` — Memory limiter storage in conftest (intermediate fix)
+- `b8f0368` — Replace limiter object entirely in test fixture (final fix)
+- `d521947` — Smart change detection + Go cache fix
+
+**CI Results (commit b8f0368):** All 4 jobs green — unit-tests ✅, go-tests ✅, deploy ✅, post-deploy-tests ✅
+**CI Results (commit d521947):** Changes job detected CI-only change → all downstream jobs correctly skipped ✅
+
+---
+
 ## Known Issues & Risks
 
 | Issue | Severity | Mitigation |
 |-------|----------|------------|
 | Headscale container has `SET_VIA_SECRETS` placeholders | Medium | `essential: false` — won't crash. VPN mesh non-functional until configured |
-| SRS custom config not mounted in ECS task def | Medium | Default config works but 10s HLS segments (high latency). Fix post-deploy |
+| ~~SRS custom config not mounted in ECS task def~~ | ~~Medium~~ | ✅ Fixed in `cab8402` — SRS container command writes custom config at startup |
 | Elastic IP hardcoded in CDK | ~~Low~~ | ✅ Fixed — parameterized via CDK context in Phase 2 |
-| No HTTPS without domain name | Medium | Beta runs HTTP. HTTPS requires `domainName` CDK context |
-| SRS_HOST defaults to `localhost` in viewer routing | High | Viewer page HLS fallback URL unreachable from browser. Set `SRS_HOST` env var in ECS task def or use relative URL with ALB routing |
-| Node economics endpoint uses node_id as user_id | Low | `GET /api/v1/economics/node/{node_id}` → 500. Needs node_id→user_id resolution |
-| Uncommitted local changes | Medium | `=4.0.0` deleted + EIP parameterized in `application-stack.ts` — must commit to branch and merge to main |
+| No HTTPS without domain name | Medium | Beta runs HTTP. HTTPS requires `domainName` CDK context. Deferred until after friends testing. |
+| ~~SRS_HOST defaults to `localhost` in viewer routing~~ | ~~High~~ | ✅ Fixed in `cab8402` — `_build_srs_url()` reads request Host header |
+| ~~Node economics endpoint uses node_id as user_id~~ | ~~Low~~ | ✅ Fixed in `cab8402` — resolves node_id → user_id via Node table |
+| ~~Uncommitted local changes~~ | ~~Medium~~ | ✅ All changes committed and pushed |
+
+---
+
+## Phase 8: Friends Testing Readiness
+
+### Restreaming Flow Analysis
+
+The full restreaming pipeline is built end-to-end:
+
+```
+OBS → RTMP → [NLB:1935] → [SRS] → HLS segments
+                                        ↓
+                              [Go Node Client]
+                              ├── HLS Fetcher (polls SRS playlist, downloads .ts segments)
+                              ├── Segment Buffer (circular, 30 segments max)
+                              ├── HLS Server (serves playlist + segments to viewers on :8080)
+                              ├── Bandwidth Reporter (60s intervals → coordinator API)
+                              └── Heartbeat Loop (30s → coordinator, updates Redis state)
+                                        ↓
+                              [Coordinator Viewer Routing]
+                              ├── GET /api/v1/watch/{stream_id} → picks best node or SRS fallback
+                              └── GET /api/v1/proxy/{stream_id}/{path} → proxies HLS via VPN IP
+```
+
+### What's Been Validated
+
+| Component | Tested? | How |
+|-----------|---------|-----|
+| OBS → SRS RTMP ingest | ✅ | Phase 6.1 — live stream confirmed |
+| SRS → HLS output | ✅ | Phase 6.2 — playlist + segments downloading |
+| Viewer page (HLS.js) | ✅ | Phase 6.3 — renders, SRS_HOST fix deployed |
+| VLC direct HLS | ✅ | Phase 6.4 — plays from ALB:8080 |
+| Go client build | ✅ | Phase 6.5 — cross-platform binary |
+| Node registration + heartbeat | ✅ | Phase 6.6 — API calls confirmed, Redis state updated |
+| Bandwidth reports | ✅ | Phase 6.7 — ledger entries created |
+| Viewer routing (API) | ✅ | Phase 6.10 — returns friend_node or SRS fallback |
+| Trust scoring | ✅ | Phase 6.9 — default 0.75, penalties working |
+| Go HLS fetcher (unit tests) | ✅ | 30 Go tests pass including HLS parsing |
+| Go HLS server (unit tests) | ✅ | Playlist generation, segment serving, capacity limiting |
+| Go bandwidth reporter (unit tests) | ✅ | Report queuing, retry logic |
+
+### What Needs E2E Validation Before Friends Testing
+
+| # | Test | Status | Notes |
+|---|------|--------|-------|
+| 8.1 | Go node fetches HLS from SRS via ALB | ⬜ | Node client pointed at ALB:8080, verify segments download |
+| 8.2 | Go node serves HLS to local viewer | ⬜ | Open `http://localhost:8080/live/{stream_id}/index.m3u8` in VLC while node runs |
+| 8.3 | Viewer routing returns friend node proxy URL | ⬜ | With node heartbeating, `GET /api/v1/watch/{stream_id}` should return `source_type: friend_node` |
+| 8.4 | Proxy endpoint reaches node (without VPN) | ⬜ | Proxy uses `vpn_ip` — without Headscale, this won't work. Need to test fallback path. |
+| 8.5 | Viewer page plays via friend node | ⬜ | Full browser test: viewer page → routing → proxy → node → HLS.js playback |
+| 8.6 | Bandwidth reports flow during restream | ⬜ | Verify ledger entries accumulate while node is actively serving |
+| 8.7 | Node graceful shutdown + deregistration | ⬜ | Ctrl+C → deregister API call → node removed from Redis → viewer falls back to SRS |
+| 8.8 | Multiple nodes on same stream | ⬜ | Two Go nodes, verify routing picks highest trust / lowest viewers |
+| 8.9 | Node capacity saturation | ⬜ | Hit max_viewers limit, verify 503 and routing excludes saturated node |
+| 8.10 | Friend Quick Start guide accuracy | ⬜ | Follow FRIEND_QUICK_START.md as a new user, verify every step works |
+
+### Critical Gap: VPN Mesh vs Direct Access
+
+The proxy endpoint (`/api/v1/proxy/{stream_id}/{path}`) routes to nodes via `vpn_ip`. Without Headscale configured, this path won't work. Two options:
+
+1. **Configure Headscale** — Full VPN mesh, nodes get 100.x.x.x IPs, proxy works as designed
+2. **Direct access mode** — Nodes expose HLS on public IP:port, viewers connect directly (no proxy needed). Simpler for friends testing but requires port forwarding.
+
+For friends testing, option 2 (direct access) is simpler and validates the core value prop without VPN complexity. The Go node already serves HLS on `:8080` — friends just need their public IP + port forwarding.
 
 ---
 
