@@ -301,7 +301,7 @@ Friend Node (Go binary)                    Coordinator (ECS)
 | 9.11 | Test: Node registration returns pre-auth key | ✅ | `POST /api/v1/auth/register` with stream_key → response includes `headscale_auth_key` (48-char hex) + `headscale_url` (http://10.0.0.134:8080). Required: (1) added `HeadscaleSecretAccess` inline policy to execution role, (2) registered task def rev 33 with `HEADSCALE_API_KEY` as ECS secret from Secrets Manager, (3) updated service to rev 33. Removed stale `HEADSCALE_API_KEY_SECRET_NAME` env var (no longer needed — secret injected natively). |
 | 9.12 | Test: Go client joins VPN mesh | ✅ | Go binary ran from external machine, registered with coordinator (got pre-auth key), joined Headscale VPN mesh via tsnet. Assigned IP `100.64.0.2`. Two bugs fixed: (1) coordinator returned private `HEADSCALE_URL` (10.0.0.134) — added `HEADSCALE_PUBLIC_URL` env var support in `auth_routes.py` + CDK + Go `-headscale-url` CLI flag; (2) VPN IP race condition in `vpn.go` — `TailscaleIPs` empty immediately after `srv.Start()`, added poll loop (500ms) waiting for IP assignment. Headscale admin shows node online. |
 | 9.13 | Test: Node reports vpn_ip in heartbeats | ✅ | After VPN join, heartbeat includes `vpn_ip=100.64.0.2`. Viewer routing API returns `source_type: friend_node, node_id: vpn-test-node-3`. Redis state updated with VPN IP. Headscale lists node as online. |
-| 9.14 | Test: Proxy routes to friend node over VPN | 🔄 | Root cause found: Fargate userspace networking has no TUN device — coordinator can't route to 100.64.x.x directly. Fix: Tailscale sidecar exposes HTTP proxy on :1055 (`TS_OUTBOUND_HTTP_PROXY_LISTEN`), coordinator routes VPN traffic through it (`TS_OUTBOUND_HTTP_PROXY_URL`). `proxy.py` has separate `_get_vpn_client()` using sidecar proxy for node requests. Deployed as task def rev 36 (commit `f12f713`). Ready for live test. |
+| 9.14 | Test: Proxy routes to friend node over VPN | 🔄 | Root cause chain: (1) Fargate userspace networking has no TUN device — coordinator can't route to 100.64.x.x directly. Fix: sidecar HTTP proxy on :1055 (commit `f12f713`, task def rev 36). (2) Headscale DERP required HTTPS — sidecar got `tls: first record does not look like a TLS handshake`. Fix: self-signed TLS cert on Headscale EC2 (commit `da76e0c`, EC2 V3). (3) Sidecar rejected self-signed cert — `x509: certificate signed by unknown authority`. Fix: store cert in Secrets Manager, inject into sidecar, install in Alpine CA store before containerboot (commit `07dcfc3`, EC2 V4, task def rev 38). Sidecar now RUNNING at VPN IP `100.64.0.9`, connected to self-hosted DERP-999. Ready for live proxy test. |
 | 9.15 | Test: Full E2E — OBS → SRS → Go node → proxy → viewer | ⬜ | Complete loop with VPN mesh active |
 
 ---
@@ -319,8 +319,8 @@ Friend Node (Go binary)                    Coordinator (ECS)
 | ECR | `164859598862.dkr.ecr.eu-west-1.amazonaws.com/streamr-p2p-beta-coordinator` |
 | ALB | `streamr-p2p-beta-alb-1130353833.eu-west-1.elb.amazonaws.com` |
 | Elastic IP | `52.213.32.59` / `eipalloc-054297e161bb78275` |
-| ECS Task Def | `streamr-p2p-beta-coordinator:36` (with `HEADSCALE_API_KEY` secret, `TS_OUTBOUND_HTTP_PROXY_URL=http://localhost:1055`) |
-| Headscale EC2 | `i-06feb40b9cf7b4e8b` — Public `63.32.61.205`, Private `10.0.0.134` |
+| ECS Task Def | `streamr-p2p-beta-coordinator:38` (with `HEADSCALE_API_KEY` secret, `HEADSCALE_TLS_CERT` secret, `TS_OUTBOUND_HTTP_PROXY_URL=http://localhost:1055`) |
+| Headscale EC2 | `i-099683a4dcbc4b5f6` — Public `108.131.19.148`, Private `10.0.0.31` (V4, self-signed TLS on :443) |
 | Headscale API Key | Secrets Manager `streamr-p2p-beta-headscale-api-key` |
-| ECS Task Def | `streamr-p2p-beta-coordinator:36` (with `HEADSCALE_API_KEY` secret, `TS_OUTBOUND_HTTP_PROXY_URL=http://localhost:1055`) |
+| ECS Task Def | `streamr-p2p-beta-coordinator:38` (with `HEADSCALE_API_KEY` + `HEADSCALE_TLS_CERT` secrets, `TS_OUTBOUND_HTTP_PROXY_URL=http://localhost:1055`) |
 | CF Stacks | `streamr-p2p-beta-eu-west-1-foundation`, `-application`, `-github-oidc` |

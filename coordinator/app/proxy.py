@@ -41,7 +41,11 @@ async def _get_vpn_client() -> httpx.AsyncClient:
     global _vpn_client
     if _vpn_client is None:
         if TS_PROXY_URL:
-            _vpn_client = httpx.AsyncClient(timeout=5.0, proxy=TS_PROXY_URL)
+            # httpx 0.25.x uses 'proxies' dict, not 'proxy' string (added in 0.27+)
+            _vpn_client = httpx.AsyncClient(
+                timeout=5.0,
+                proxies={"http://": TS_PROXY_URL, "https://": TS_PROXY_URL},
+            )
             logger.info("VPN proxy client configured: %s", TS_PROXY_URL)
         else:
             # No proxy configured — fall back to direct (works if TUN exists)
