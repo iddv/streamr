@@ -8,15 +8,57 @@
 
 ---
 
-## ✅ **Current Status (Updated January 2025)**
+## ✅ **Current Status (Updated March 2026)**
 
 🎉 **Good news! The streaming infrastructure is now working:**
 - ✅ **RTMP Streaming**: Live and working at `rtmp://52.213.32.59:1935/live`
 - ✅ **Dashboard**: Real-time monitoring at the URL below
-- ✅ **Friend Nodes**: Setup scripts tested and working
+- ✅ **Friend Nodes**: Go binary + VPN mesh tested and working
 - ✅ **Stream Playback**: HLS streaming confirmed working
+- ✅ **VPN Mesh**: Headscale-based mesh for secure node connectivity
 
 **What this means for you**: The setup should work smoothly! If you encounter issues, it's likely router/firewall configuration (which we'll help you fix).
+
+---
+
+## 🎬 **For Streamers: OBS Setup**
+
+### 1. Create your stream via the API
+
+```bash
+ALB="http://streamr-p2p-beta-alb-1130353833.eu-west-1.elb.amazonaws.com"
+
+# Register as a streamer
+curl -X POST "$ALB/api/v1/auth/register-streamer" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"you@example.com","password":"yourpass","display_name":"YourName"}'
+
+# Save the token from the response, then create a stream
+curl -X POST "$ALB/streams" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <YOUR_TOKEN>" \
+  -d '{"stream_id":"my-stream","rtmp_url":"rtmp://52.213.32.59:1935/live/my-stream"}'
+```
+
+Save the `stream_key` from the response.
+
+### 2. Configure OBS
+
+In OBS → Settings → Stream:
+
+| Field | Value |
+|-------|-------|
+| Service | Custom... |
+| Server | `rtmp://52.213.32.59:1935/live` |
+| Stream Key | `my-stream?key=<YOUR_STREAM_KEY>` |
+
+The format is `<stream_id>?key=<stream_key>`. The stream ID becomes the HLS filename, and the `?key=` part authenticates with the coordinator.
+
+### 3. Watch your stream
+
+- Browser: `http://streamr-p2p-beta-alb-1130353833.eu-west-1.elb.amazonaws.com/watch/my-stream`
+- VLC: `http://streamr-p2p-beta-alb-1130353833.eu-west-1.elb.amazonaws.com:8080/live/my-stream.m3u8`
+- Dashboard: `http://streamr-p2p-beta-alb-1130353833.eu-west-1.elb.amazonaws.com/dashboard/streamer/<your_user_id>`
 
 ---
 

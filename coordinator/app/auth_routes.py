@@ -250,7 +250,7 @@ async def register_node(
         stream_id=stream.stream_id,
         node_id=body.node_id,
         headscale_auth_key=headscale_auth_key,
-        headscale_url=os.getenv("HEADSCALE_URL", "") if headscale_auth_key else None,
+        headscale_url=os.getenv("HEADSCALE_PUBLIC_URL", os.getenv("HEADSCALE_URL", "")) if headscale_auth_key else None,
     )
 
 

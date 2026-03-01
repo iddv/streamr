@@ -81,24 +81,36 @@ func (m *MeshNode) Join(ctx context.Context, authKey, nodeName, controlURL strin
 			continue
 		}
 
-		// Connected — extract VPN IP
+		// Connected — wait for VPN IP assignment (auth may still be in progress)
 		lc, err := srv.LocalClient()
 		if err != nil {
 			srv.Close()
 			return fmt.Errorf("get local client: %w", err)
 		}
 
-		status, err := lc.Status(ctx)
-		if err != nil {
-			srv.Close()
-			return fmt.Errorf("get tailscale status: %w", err)
+		var vpnIP string
+		pollInterval := 500 * time.Millisecond
+		for vpnIP == "" {
+			select {
+			case <-ctx.Done():
+				srv.Close()
+				return ctx.Err()
+			case <-time.After(pollInterval):
+			}
+
+			status, err := lc.Status(ctx)
+			if err != nil {
+				m.log.WithField("operation", "mesh_join").WithError(err).Debug("Waiting for VPN IP...")
+				continue
+			}
+			if len(status.TailscaleIPs) > 0 {
+				vpnIP = status.TailscaleIPs[0].String()
+			}
 		}
 
 		m.mu.Lock()
 		m.tsServer = srv
-		if len(status.TailscaleIPs) > 0 {
-			m.vpnIP = status.TailscaleIPs[0].String()
-		}
+		m.vpnIP = vpnIP
 		m.mu.Unlock()
 
 		m.log.WithFields(logrus.Fields{

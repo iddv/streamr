@@ -86,9 +86,14 @@ func main() {
 	// Join VPN mesh if Headscale auth key was provided (task 4.5)
 	var meshNode *mesh.MeshNode
 	if regResp.HeadscaleAuthKey != "" {
+		headscaleURL := regResp.HeadscaleURL
+		if cfg.HeadscaleURL != "" {
+			headscaleURL = cfg.HeadscaleURL
+			log.WithField("operation", "mesh_join").Infof("Using CLI override for Headscale URL: %s", headscaleURL)
+		}
 		meshNode = mesh.NewMeshNode(log)
 		meshCtx, meshCancel := context.WithTimeout(context.Background(), 60*time.Second)
-		err := meshNode.Join(meshCtx, regResp.HeadscaleAuthKey, nodeID, regResp.HeadscaleURL)
+		err := meshNode.Join(meshCtx, regResp.HeadscaleAuthKey, nodeID, headscaleURL)
 		meshCancel()
 		if err != nil {
 			log.WithField("operation", "mesh_join").WithError(err).Warn("Failed to join VPN mesh — continuing without mesh")

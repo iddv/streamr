@@ -19,8 +19,14 @@ router = APIRouter(tags=["proxy"])
 SRS_HOST = os.getenv("SRS_HOST", "localhost")
 SRS_PORT = os.getenv("SRS_PORT", "8080")
 
-# Shared async client — reused across requests for connection pooling
+# Tailscale sidecar HTTP proxy for routing to VPN IPs (100.64.x.x)
+# In Fargate userspace mode, there's no TUN device — traffic to VPN IPs
+# must go through the sidecar's outbound HTTP proxy.
+TS_PROXY_URL = os.getenv("TS_OUTBOUND_HTTP_PROXY_URL", "")
+
+# Shared async clients — separate for direct and VPN-proxied traffic
 _http_client: httpx.AsyncClient | None = None
+_vpn_client: httpx.AsyncClient | None = None
 
 
 async def _get_http_client() -> httpx.AsyncClient:
@@ -28,6 +34,20 @@ async def _get_http_client() -> httpx.AsyncClient:
     if _http_client is None:
         _http_client = httpx.AsyncClient(timeout=5.0)
     return _http_client
+
+
+async def _get_vpn_client() -> httpx.AsyncClient:
+    """Client that routes through Tailscale sidecar HTTP proxy for VPN IPs."""
+    global _vpn_client
+    if _vpn_client is None:
+        if TS_PROXY_URL:
+            _vpn_client = httpx.AsyncClient(timeout=5.0, proxy=TS_PROXY_URL)
+            logger.info("VPN proxy client configured: %s", TS_PROXY_URL)
+        else:
+            # No proxy configured — fall back to direct (works if TUN exists)
+            _vpn_client = httpx.AsyncClient(timeout=5.0)
+            logger.warning("No TS_OUTBOUND_HTTP_PROXY_URL set — VPN routing may fail")
+    return _vpn_client
 
 
 def _log_fallback(stream_id: str, reason: str) -> None:
@@ -122,7 +142,7 @@ async def proxy_hls(stream_id: str, path: str, request: Request):
     if vpn_ip:
         node_url = f"http://{vpn_ip}:8080/live/{stream_id}/{path}"
         try:
-            client = await _get_http_client()
+            client = await _get_vpn_client()
             resp = await client.get(node_url)
             if resp.status_code == 200:
                 return StreamingResponse(

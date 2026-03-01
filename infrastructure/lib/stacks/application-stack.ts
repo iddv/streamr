@@ -439,6 +439,7 @@ export class ApplicationStack extends cdk.Stack {
       '[Service]',
       'Type=simple',
       'User=headscale',
+      'RuntimeDirectory=headscale',
       'ExecStart=/usr/local/bin/headscale serve --config /etc/headscale/config.yaml',
       'Restart=always',
       'RestartSec=5',
@@ -496,6 +497,10 @@ export class ApplicationStack extends cdk.Stack {
     cdk.Tags.of(this.headscaleInstance).add('DeployVersion', '2');
 
     // Tailscale sidecar — coordinator joins the VPN mesh via EC2 Headscale
+    // Needs TS_AUTHKEY to authenticate with Headscale so the proxy can reach VPN IPs (100.64.x.x)
+    const tailscaleSidecarKeySecret = secretsmanager.Secret.fromSecretNameV2(
+      this, 'TailscaleSidecarKeySecret', context.resourceName('tailscale-sidecar-key')
+    );
     const tailscaleContainer = this.taskDefinition.addContainer('tailscaled', {
       image: ecs.ContainerImage.fromRegistry('tailscale/tailscale:latest'),
       containerName: 'tailscaled',
@@ -508,20 +513,35 @@ export class ApplicationStack extends cdk.Stack {
         'TS_STATE_DIR': '/var/lib/tailscale',
         // Points at EC2 Headscale instance (private IP within VPC)
         'TS_EXTRA_ARGS': `--login-server=http://${this.headscaleInstance.instancePrivateIp}:8080`,
+        // Expose HTTP proxy so coordinator container can route to VPN IPs
+        // (Fargate userspace mode has no TUN device — must proxy through sidecar)
+        'TS_OUTBOUND_HTTP_PROXY_LISTEN': '0.0.0.0:1055',
+      },
+      secrets: {
+        'TS_AUTHKEY': ecs.Secret.fromSecretsManager(tailscaleSidecarKeySecret),
       },
     });
 
     // Add Headscale env vars to coordinator container
     coordinatorContainer.addEnvironment('HEADSCALE_URL', `http://${this.headscaleInstance.instancePrivateIp}:8080`);
-    // API key will be read from Secrets Manager at runtime by the coordinator
-    // (the key is generated on first boot and stored in Secrets Manager)
-    coordinatorContainer.addEnvironment('HEADSCALE_API_KEY_SECRET_NAME', context.resourceName('headscale-api-key'));
+    // Public URL for external nodes (Go clients outside VPC) to connect to Headscale
+    coordinatorContainer.addEnvironment('HEADSCALE_PUBLIC_URL', `http://${this.headscaleInstance.instancePublicIp}:8080`);
+    // Tailscale sidecar HTTP proxy — coordinator routes VPN traffic through this
+    coordinatorContainer.addEnvironment('TS_OUTBOUND_HTTP_PROXY_URL', 'http://localhost:1055');
+    // Inject API key directly from Secrets Manager via ECS native secrets (no boto3 needed)
+    const headscaleApiKeySecret = secretsmanager.Secret.fromSecretNameV2(
+      this, 'HeadscaleApiKeySecret', context.resourceName('headscale-api-key')
+    );
+    coordinatorContainer.addSecret('HEADSCALE_API_KEY', ecs.Secret.fromSecretsManager(headscaleApiKeySecret));
 
-    // Allow coordinator task role to read the Headscale API key secret
+    // Allow coordinator task role to read the Headscale API key and sidecar auth key secrets
     taskRole.addToPolicy(new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
       actions: ['secretsmanager:GetSecretValue'],
-      resources: [`arn:aws:secretsmanager:${context.region}:*:secret:${context.resourceName('headscale-api-key')}*`],
+      resources: [
+        `arn:aws:secretsmanager:${context.region}:*:secret:${context.resourceName('headscale-api-key')}*`,
+        `arn:aws:secretsmanager:${context.region}:*:secret:${context.resourceName('tailscale-sidecar-key')}*`,
+      ],
     }));
 
     // Headscale coordination traffic from ECS to EC2 (within VPC)

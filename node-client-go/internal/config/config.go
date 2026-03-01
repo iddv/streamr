@@ -22,6 +22,7 @@ type Config struct {
 	MaxBufferSegments int           `yaml:"max_buffer_segments"`
 	MaxViewers        int           `yaml:"max_concurrent_viewers"`
 	SRSURL            string        `yaml:"srs_url"`
+	HeadscaleURL      string        `yaml:"headscale_url"`
 }
 
 // Defaults returns a Config with all default values.
@@ -114,6 +115,7 @@ func LoadWithArgs(args []string) (*Config, error) {
 	maxSegments := fs.Int("max-segments", 0, "Max buffer segments")
 	maxViewers := fs.Int("max-viewers", 0, "Max concurrent viewers")
 	srsURL := fs.String("srs-url", "", "SRS streaming server URL (defaults to coordinator URL with port 8080)")
+	headscaleURL := fs.String("headscale-url", "", "Override Headscale control URL (for external nodes)")
 
 	// Also support legacy flags
 	fs.String("help", "", "")
@@ -151,6 +153,9 @@ func LoadWithArgs(args []string) (*Config, error) {
 	}
 	if *srsURL != "" {
 		cfg.SRSURL = *srsURL
+	}
+	if *headscaleURL != "" {
+		cfg.HeadscaleURL = *headscaleURL
 	}
 
 	return &cfg, nil

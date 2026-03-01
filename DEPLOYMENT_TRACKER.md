@@ -295,12 +295,12 @@ Friend Node (Go binary)                    Coordinator (ECS)
 | 9.5 | CDK: Remove Headscale container from ECS task def | ✅ | Removed `essential:false` Headscale container — moved to EC2 |
 | 9.6 | CDK: Update Tailscale sidecar to point at EC2 Headscale | ✅ | `--login-server=http://{EC2_PRIVATE_IP}:8080` (VPC-internal) |
 | 9.7 | CDK: Pass `HEADSCALE_URL` and `HEADSCALE_API_KEY` env vars to coordinator | ✅ | `HEADSCALE_URL` → EC2 private IP. `HEADSCALE_API_KEY_SECRET_NAME` → Secrets Manager name. Coordinator reads key via boto3. |
-| 9.8 | Deploy CDK changes | ⬜ | `cdk deploy` — creates EC2, updates ECS task def |
-| 9.9 | Verify Headscale is running on EC2 | ⬜ | SSM into instance, check `systemctl status headscale`, test API |
-| 9.10 | Create Headscale user + generate API key | ⬜ | `headscale users create default`, `headscale apikeys create` |
-| 9.11 | Test: Node registration returns pre-auth key | ⬜ | Register node → response includes `headscale_auth_key` |
-| 9.12 | Test: Go client joins VPN mesh | ⬜ | Node receives key, tsnet connects, gets 100.64.x.x IP |
-| 9.13 | Test: Node reports vpn_ip in heartbeats | ⬜ | Heartbeat payload includes VPN IP, Redis state updated |
+| 9.8 | Deploy CDK changes | ✅ | Deployed via commit `f83ee4d`. EC2 `i-06feb40b9cf7b4e8b` created. Two config bugs found and fixed live + in CDK (`73e0b9d`). |
+| 9.9 | Verify Headscale is running on EC2 | ✅ | `systemctl status headscale` → active (running). Health check `{"status":"pass"}`. DB connected, DERP+STUN started, HTTP listening on :8080. |
+| 9.10 | Create Headscale user + generate API key | ✅ | `headscale users create default` → success. API key generated (8760h expiry), stored in Secrets Manager `streamr-p2p-beta-headscale-api-key`. |
+| 9.11 | Test: Node registration returns pre-auth key | ✅ | `POST /api/v1/auth/register` with stream_key → response includes `headscale_auth_key` (48-char hex) + `headscale_url` (http://10.0.0.134:8080). Required: (1) added `HeadscaleSecretAccess` inline policy to execution role, (2) registered task def rev 33 with `HEADSCALE_API_KEY` as ECS secret from Secrets Manager, (3) updated service to rev 33. Removed stale `HEADSCALE_API_KEY_SECRET_NAME` env var (no longer needed — secret injected natively). |
+| 9.12 | Test: Go client joins VPN mesh | ✅ | Go binary ran from external machine, registered with coordinator (got pre-auth key), joined Headscale VPN mesh via tsnet. Assigned IP `100.64.0.2`. Two bugs fixed: (1) coordinator returned private `HEADSCALE_URL` (10.0.0.134) — added `HEADSCALE_PUBLIC_URL` env var support in `auth_routes.py` + CDK + Go `-headscale-url` CLI flag; (2) VPN IP race condition in `vpn.go` — `TailscaleIPs` empty immediately after `srv.Start()`, added poll loop (500ms) waiting for IP assignment. Headscale admin shows node online. |
+| 9.13 | Test: Node reports vpn_ip in heartbeats | ✅ | After VPN join, heartbeat includes `vpn_ip=100.64.0.2`. Viewer routing API returns `source_type: friend_node, node_id: vpn-test-node-3`. Redis state updated with VPN IP. Headscale lists node as online. |
 | 9.14 | Test: Proxy routes to friend node over VPN | ⬜ | `GET /api/v1/proxy/{stream}/index.m3u8` → proxied to 100.64.x.x:8080 |
 | 9.15 | Test: Full E2E — OBS → SRS → Go node → proxy → viewer | ⬜ | Complete loop with VPN mesh active |
 
@@ -319,4 +319,7 @@ Friend Node (Go binary)                    Coordinator (ECS)
 | ECR | `164859598862.dkr.ecr.eu-west-1.amazonaws.com/streamr-p2p-beta-coordinator` |
 | ALB | `streamr-p2p-beta-alb-1130353833.eu-west-1.elb.amazonaws.com` |
 | Elastic IP | `52.213.32.59` / `eipalloc-054297e161bb78275` |
+| ECS Task Def | `streamr-p2p-beta-coordinator:33` (with `HEADSCALE_API_KEY` secret from Secrets Manager) |
+| Headscale EC2 | `i-06feb40b9cf7b4e8b` — Public `108.129.166.211`, Private `10.0.0.134` |
+| Headscale API Key | Secrets Manager `streamr-p2p-beta-headscale-api-key` |
 | CF Stacks | `streamr-p2p-beta-eu-west-1-foundation`, `-application`, `-github-oidc` |
