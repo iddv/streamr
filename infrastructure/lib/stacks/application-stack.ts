@@ -295,14 +295,14 @@ export class ApplicationStack extends cdk.Stack {
       allowAllOutbound: true,
     });
 
-    // Coordination port — friend nodes and Tailscale sidecar connect here
+    // HTTPS coordination + DERP relay — Tailscale clients require HTTPS for DERP
     headscaleSecurityGroup.addIngressRule(
       ec2.Peer.anyIpv4(),
-      ec2.Port.tcp(8080),
-      'Allow Headscale coordination traffic (nodes + coordinator)'
+      ec2.Port.tcp(443),
+      'Allow Headscale HTTPS coordination + DERP relay'
     );
 
-    // DERP relay — UDP STUN for NAT traversal
+    // STUN — UDP for NAT traversal
     headscaleSecurityGroup.addIngressRule(
       ec2.Peer.anyIpv4(),
       ec2.Port.udp(3478),
@@ -378,11 +378,23 @@ export class ApplicationStack extends cdk.Stack {
       'TOKEN=$(curl -s -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")',
       'PUBLIC_IP=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/public-ipv4)',
       '',
+      '# Generate self-signed TLS certificate for Headscale + embedded DERP',
+      '# Tailscale DERP clients require HTTPS — plain HTTP causes "tls: first record does not look like a TLS handshake"',
+      'openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 \\',
+      '  -keyout /etc/headscale/tls.key -out /etc/headscale/tls.crt \\',
+      '  -days 3650 -nodes -subj "/CN=streamr-headscale" \\',
+      '  -addext "subjectAltName=IP:${PUBLIC_IP}"',
+      'chown headscale:headscale /etc/headscale/tls.key /etc/headscale/tls.crt',
+      'chmod 600 /etc/headscale/tls.key',
+      '',
       '# Write Headscale config',
       'cat > /etc/headscale/config.yaml << HSEOF',
-      'server_url: http://${PUBLIC_IP}:8080',
-      'listen_addr: 0.0.0.0:8080',
+      'server_url: https://${PUBLIC_IP}:443',
+      'listen_addr: 0.0.0.0:443',
       'grpc_listen_addr: 0.0.0.0:50443',
+      '',
+      'tls_cert_path: /etc/headscale/tls.crt',
+      'tls_key_path: /etc/headscale/tls.key',
       '',
       'noise:',
       '  private_key_path: /var/lib/headscale/noise_private.key',
@@ -410,6 +422,7 @@ export class ApplicationStack extends cdk.Stack {
       '    stun_listen_addr: 0.0.0.0:3478',
       '    private_key_path: /var/lib/headscale/derp_server_private.key',
       '    automatically_add_embedded_derp_region: true',
+      '    ipv4: ${PUBLIC_IP}',
       '  urls: []',
       '  paths: []',
       '',
@@ -440,6 +453,7 @@ export class ApplicationStack extends cdk.Stack {
       'Type=simple',
       'User=headscale',
       'RuntimeDirectory=headscale',
+      'AmbientCapabilities=CAP_NET_BIND_SERVICE',
       'ExecStart=/usr/local/bin/headscale serve --config /etc/headscale/config.yaml',
       'Restart=always',
       'RestartSec=5',
@@ -476,7 +490,7 @@ export class ApplicationStack extends cdk.Stack {
     );
 
     // Headscale EC2 Instance
-    this.headscaleInstance = new ec2.Instance(this, 'HeadscaleInstanceV2', {
+    this.headscaleInstance = new ec2.Instance(this, 'HeadscaleInstanceV3', {
       instanceName: context.resourceName('headscale'),
       instanceType: ec2.InstanceType.of(ec2.InstanceClass.T3, ec2.InstanceSize.MICRO),
       machineImage: ec2.MachineImage.latestAmazonLinux2023(),
@@ -494,7 +508,7 @@ export class ApplicationStack extends cdk.Stack {
 
     // Tag for easy identification
     cdk.Tags.of(this.headscaleInstance).add('Service', 'headscale');
-    cdk.Tags.of(this.headscaleInstance).add('DeployVersion', '2');
+    cdk.Tags.of(this.headscaleInstance).add('DeployVersion', '3');
 
     // Tailscale sidecar — coordinator joins the VPN mesh via EC2 Headscale
     // Needs TS_AUTHKEY to authenticate with Headscale so the proxy can reach VPN IPs (100.64.x.x)
@@ -511,8 +525,8 @@ export class ApplicationStack extends cdk.Stack {
       essential: false,
       environment: {
         'TS_STATE_DIR': '/var/lib/tailscale',
-        // Points at EC2 Headscale instance (private IP within VPC)
-        'TS_EXTRA_ARGS': `--login-server=http://${this.headscaleInstance.instancePrivateIp}:8080`,
+        // Points at EC2 Headscale instance (private IP within VPC) — HTTPS on 443 with self-signed cert
+        'TS_EXTRA_ARGS': `--login-server=https://${this.headscaleInstance.instancePrivateIp}:443`,
         // Expose HTTP proxy so coordinator container can route to VPN IPs
         // (Fargate userspace mode has no TUN device — must proxy through sidecar)
         'TS_OUTBOUND_HTTP_PROXY_LISTEN': '0.0.0.0:1055',
@@ -523,9 +537,9 @@ export class ApplicationStack extends cdk.Stack {
     });
 
     // Add Headscale env vars to coordinator container
-    coordinatorContainer.addEnvironment('HEADSCALE_URL', `http://${this.headscaleInstance.instancePrivateIp}:8080`);
+    coordinatorContainer.addEnvironment('HEADSCALE_URL', `https://${this.headscaleInstance.instancePrivateIp}:443`);
     // Public URL for external nodes (Go clients outside VPC) to connect to Headscale
-    coordinatorContainer.addEnvironment('HEADSCALE_PUBLIC_URL', `http://${this.headscaleInstance.instancePublicIp}:8080`);
+    coordinatorContainer.addEnvironment('HEADSCALE_PUBLIC_URL', `https://${this.headscaleInstance.instancePublicIp}:443`);
     // Tailscale sidecar HTTP proxy — coordinator routes VPN traffic through this
     coordinatorContainer.addEnvironment('TS_OUTBOUND_HTTP_PROXY_URL', 'http://localhost:1055');
     // Inject API key directly from Secrets Manager via ECS native secrets (no boto3 needed)
@@ -547,7 +561,7 @@ export class ApplicationStack extends cdk.Stack {
     // Headscale coordination traffic from ECS to EC2 (within VPC)
     headscaleSecurityGroup.addIngressRule(
       this.serviceSecurityGroup,
-      ec2.Port.tcp(8080),
+      ec2.Port.tcp(443),
       'Allow ECS coordinator to reach Headscale'
     );
 

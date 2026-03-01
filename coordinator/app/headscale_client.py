@@ -59,6 +59,7 @@ class HeadscaleClient:
             base_url=self.base_url,
             timeout=10.0,
             headers={"Authorization": f"Bearer {self.api_key}"},
+            verify=False,  # Self-signed TLS cert on Headscale EC2
         )
 
     async def create_preauth_key(

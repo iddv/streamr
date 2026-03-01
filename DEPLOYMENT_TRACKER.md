@@ -171,7 +171,7 @@
 | ~~SRS_HOST defaults to `localhost` in viewer routing~~ | ~~High~~ | ✅ Fixed in `cab8402` — `_build_srs_url()` reads request Host header |
 | ~~Node economics endpoint uses node_id as user_id~~ | ~~Low~~ | ✅ Fixed in `cab8402` — resolves node_id → user_id via Node table |
 | ~~Uncommitted local changes~~ | ~~Medium~~ | ✅ All changes committed and pushed |
-| Proxy can't reach nodes without VPN | High | Proxy resolves `vpn_ip` from Redis — empty without Headscale. Falls back to SRS every time. Viewer routing says `friend_node` but proxy silently serves SRS. See "Proxy Gap" section below. |
+| Proxy can't reach nodes without VPN | ~~High~~ | ✅ Fixed in `f12f713` — Tailscale sidecar HTTP proxy (`TS_OUTBOUND_HTTP_PROXY_LISTEN=0.0.0.0:1055`) routes coordinator VPN traffic through sidecar. `proxy.py` uses separate `_get_vpn_client()`. Deployed as task def rev 36. Awaiting live E2E validation (9.14). |
 | SRS master playlist intermittently empty | Low | `#EXT-X-STREAM-INF` line present but variant URL sometimes missing. Go client retries every 2s, self-heals. SRS timing issue, not a blocker. |
 
 ---
@@ -301,7 +301,7 @@ Friend Node (Go binary)                    Coordinator (ECS)
 | 9.11 | Test: Node registration returns pre-auth key | ✅ | `POST /api/v1/auth/register` with stream_key → response includes `headscale_auth_key` (48-char hex) + `headscale_url` (http://10.0.0.134:8080). Required: (1) added `HeadscaleSecretAccess` inline policy to execution role, (2) registered task def rev 33 with `HEADSCALE_API_KEY` as ECS secret from Secrets Manager, (3) updated service to rev 33. Removed stale `HEADSCALE_API_KEY_SECRET_NAME` env var (no longer needed — secret injected natively). |
 | 9.12 | Test: Go client joins VPN mesh | ✅ | Go binary ran from external machine, registered with coordinator (got pre-auth key), joined Headscale VPN mesh via tsnet. Assigned IP `100.64.0.2`. Two bugs fixed: (1) coordinator returned private `HEADSCALE_URL` (10.0.0.134) — added `HEADSCALE_PUBLIC_URL` env var support in `auth_routes.py` + CDK + Go `-headscale-url` CLI flag; (2) VPN IP race condition in `vpn.go` — `TailscaleIPs` empty immediately after `srv.Start()`, added poll loop (500ms) waiting for IP assignment. Headscale admin shows node online. |
 | 9.13 | Test: Node reports vpn_ip in heartbeats | ✅ | After VPN join, heartbeat includes `vpn_ip=100.64.0.2`. Viewer routing API returns `source_type: friend_node, node_id: vpn-test-node-3`. Redis state updated with VPN IP. Headscale lists node as online. |
-| 9.14 | Test: Proxy routes to friend node over VPN | ⬜ | `GET /api/v1/proxy/{stream}/index.m3u8` → proxied to 100.64.x.x:8080 |
+| 9.14 | Test: Proxy routes to friend node over VPN | 🔄 | Root cause found: Fargate userspace networking has no TUN device — coordinator can't route to 100.64.x.x directly. Fix: Tailscale sidecar exposes HTTP proxy on :1055 (`TS_OUTBOUND_HTTP_PROXY_LISTEN`), coordinator routes VPN traffic through it (`TS_OUTBOUND_HTTP_PROXY_URL`). `proxy.py` has separate `_get_vpn_client()` using sidecar proxy for node requests. Deployed as task def rev 36 (commit `f12f713`). Ready for live test. |
 | 9.15 | Test: Full E2E — OBS → SRS → Go node → proxy → viewer | ⬜ | Complete loop with VPN mesh active |
 
 ---
@@ -319,7 +319,8 @@ Friend Node (Go binary)                    Coordinator (ECS)
 | ECR | `164859598862.dkr.ecr.eu-west-1.amazonaws.com/streamr-p2p-beta-coordinator` |
 | ALB | `streamr-p2p-beta-alb-1130353833.eu-west-1.elb.amazonaws.com` |
 | Elastic IP | `52.213.32.59` / `eipalloc-054297e161bb78275` |
-| ECS Task Def | `streamr-p2p-beta-coordinator:33` (with `HEADSCALE_API_KEY` secret from Secrets Manager) |
-| Headscale EC2 | `i-06feb40b9cf7b4e8b` — Public `108.129.166.211`, Private `10.0.0.134` |
+| ECS Task Def | `streamr-p2p-beta-coordinator:36` (with `HEADSCALE_API_KEY` secret, `TS_OUTBOUND_HTTP_PROXY_URL=http://localhost:1055`) |
+| Headscale EC2 | `i-06feb40b9cf7b4e8b` — Public `63.32.61.205`, Private `10.0.0.134` |
 | Headscale API Key | Secrets Manager `streamr-p2p-beta-headscale-api-key` |
+| ECS Task Def | `streamr-p2p-beta-coordinator:36` (with `HEADSCALE_API_KEY` secret, `TS_OUTBOUND_HTTP_PROXY_URL=http://localhost:1055`) |
 | CF Stacks | `streamr-p2p-beta-eu-west-1-foundation`, `-application`, `-github-oidc` |
