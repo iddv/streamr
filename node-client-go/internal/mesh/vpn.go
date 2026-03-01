@@ -3,8 +3,11 @@ package mesh
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"sync"
@@ -13,6 +16,75 @@ import (
 	"github.com/sirupsen/logrus"
 	"tailscale.com/tsnet"
 )
+
+// InstallCert writes a PEM certificate to the tsnet state directory and sets
+// SSL_CERT_FILE so the Go TLS stack trusts it. This is needed for self-signed
+// Headscale TLS certs. Must be called before Join().
+func InstallCert(certPEM []byte, log *logrus.Entry) error {
+	if len(certPEM) == 0 {
+		return nil
+	}
+
+	// Verify the PEM is actually parseable
+	pool := x509.NewCertPool()
+	if !pool.AppendCertsFromPEM(certPEM) {
+		return fmt.Errorf("failed to parse Headscale TLS certificate PEM")
+	}
+
+	homeDir, _ := os.UserHomeDir()
+	certPath := filepath.Join(homeDir, ".streamr", "headscale-ca.pem")
+	if err := os.MkdirAll(filepath.Dir(certPath), 0700); err != nil {
+		return fmt.Errorf("create cert dir: %w", err)
+	}
+
+	// Build a combined PEM: system certs + our custom cert.
+	// Go's crypto/tls reads SSL_CERT_FILE as the *only* trust store,
+	// so we need to include system certs too.
+	sysCerts, err := x509.SystemCertPool()
+	if err != nil {
+		log.WithError(err).Warn("Could not load system cert pool, using custom cert only")
+	}
+
+	// Write system certs + custom cert to the file
+	var combined []byte
+	if sysCerts != nil {
+		// Export system certs by reading the default cert file if it exists
+		for _, path := range []string{
+			"/etc/ssl/certs/ca-certificates.crt",
+			"/etc/pki/tls/certs/ca-bundle.crt",
+			"/etc/ssl/ca-bundle.pem",
+		} {
+			if data, err := os.ReadFile(path); err == nil {
+				combined = append(combined, data...)
+				break
+			}
+		}
+	}
+	combined = append(combined, certPEM...)
+
+	if err := os.WriteFile(certPath, combined, 0600); err != nil {
+		return fmt.Errorf("write cert file: %w", err)
+	}
+
+	os.Setenv("SSL_CERT_FILE", certPath)
+
+	// Also configure the default HTTP transport to trust the cert
+	// (tsnet uses net/http internally)
+	if transport, ok := http.DefaultTransport.(*http.Transport); ok {
+		if transport.TLSClientConfig == nil {
+			transport.TLSClientConfig = &tls.Config{}
+		}
+		certPool, _ := x509.SystemCertPool()
+		if certPool == nil {
+			certPool = x509.NewCertPool()
+		}
+		certPool.AppendCertsFromPEM(certPEM)
+		transport.TLSClientConfig.RootCAs = certPool
+	}
+
+	log.WithField("cert_path", certPath).Info("Installed Headscale TLS certificate")
+	return nil
+}
 
 // MeshNode manages the embedded Tailscale/tsnet VPN connection.
 type MeshNode struct {

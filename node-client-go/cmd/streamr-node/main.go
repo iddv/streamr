@@ -91,9 +91,20 @@ func main() {
 			headscaleURL = cfg.HeadscaleURL
 			log.WithField("operation", "mesh_join").Infof("Using CLI override for Headscale URL: %s", headscaleURL)
 		}
+
+		// Fetch and install Headscale TLS cert (self-signed) before joining mesh
+		certPEM, err := client.FetchHeadscaleCert()
+		if err != nil {
+			log.WithField("operation", "mesh_join").WithError(err).Warn("Failed to fetch Headscale TLS cert")
+		} else if len(certPEM) > 0 {
+			if err := mesh.InstallCert(certPEM, log); err != nil {
+				log.WithField("operation", "mesh_join").WithError(err).Warn("Failed to install Headscale TLS cert")
+			}
+		}
+
 		meshNode = mesh.NewMeshNode(log)
 		meshCtx, meshCancel := context.WithTimeout(context.Background(), 60*time.Second)
-		err := meshNode.Join(meshCtx, regResp.HeadscaleAuthKey, nodeID, headscaleURL)
+		err = meshNode.Join(meshCtx, regResp.HeadscaleAuthKey, nodeID, headscaleURL)
 		meshCancel()
 		if err != nil {
 			log.WithField("operation", "mesh_join").WithError(err).Warn("Failed to join VPN mesh — continuing without mesh")

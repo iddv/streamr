@@ -247,3 +247,27 @@ func (c *Client) Deregister() error {
 	c.log.WithField("operation", "deregister").Info("Deregistered from coordinator")
 	return nil
 }
+// FetchHeadscaleCert downloads the Headscale TLS certificate PEM from the
+// coordinator so the Go node can trust the self-signed cert.
+func (c *Client) FetchHeadscaleCert() ([]byte, error) {
+	resp, err := c.httpClient.Get(c.baseURL + "/api/v1/auth/headscale-cert")
+	if err != nil {
+		return nil, fmt.Errorf("fetch headscale cert: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, nil // No cert configured — not an error
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("fetch headscale cert: status %d", resp.StatusCode)
+	}
+
+	pem, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read headscale cert body: %w", err)
+	}
+	return pem, nil
+}
+
+

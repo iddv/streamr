@@ -282,3 +282,16 @@ async def jwks_endpoint():
     clients) can verify JWTs without sharing the private key.
     """
     return get_jwks()
+
+@router.get("/headscale-cert")
+async def headscale_cert():
+    """
+    Serve the Headscale TLS certificate PEM so Go node clients can trust
+    the self-signed cert before joining the VPN mesh.
+    """
+    cert_pem = os.getenv("HEADSCALE_TLS_CERT", "")
+    if not cert_pem:
+        raise HTTPException(status_code=404, detail="No Headscale TLS cert configured")
+    from fastapi.responses import PlainTextResponse
+    return PlainTextResponse(content=cert_pem, media_type="application/x-pem-file")
+

@@ -577,6 +577,9 @@ export class ApplicationStack extends cdk.Stack {
     );
     coordinatorContainer.addSecret('HEADSCALE_API_KEY', ecs.Secret.fromSecretsManager(headscaleApiKeySecret));
 
+    // Also pass the TLS cert to coordinator so it can serve it to Go nodes via /api/v1/auth/headscale-cert
+    coordinatorContainer.addSecret('HEADSCALE_TLS_CERT', ecs.Secret.fromSecretsManager(headscaleTlsCertSecret));
+
     // Allow coordinator task role to read the Headscale API key, sidecar auth key, and TLS cert secrets
     taskRole.addToPolicy(new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
