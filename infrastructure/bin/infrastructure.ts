@@ -3,6 +3,7 @@ import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
 import { FoundationStack } from '../lib/stacks/foundation-stack';
 import { ApplicationStack } from '../lib/stacks/application-stack';
+import { MonitoringStack } from '../lib/stacks/monitoring-stack';
 import { GitHubOidcStack } from '../lib/stacks/github-oidc-stack';
 import { createDeploymentContext, getValidStages, getValidRegions, getPrimaryRegion } from '../lib/config/deployment-context';
 
@@ -82,6 +83,30 @@ const applicationStack = new ApplicationStack(app, context.stackName('applicatio
 // Application stack depends on foundation stack
 applicationStack.addDependency(foundationStack);
 
+// Monitoring Stack - CloudWatch dashboard (default metrics only, no custom metrics)
+const monitoringStack = new MonitoringStack(app, context.stackName('monitoring'), {
+  context,
+  vpc: foundationStack.vpc,
+  ecsCluster: foundationStack.ecsCluster,
+  ecsService: applicationStack.service,
+  alb: applicationStack.loadBalancer,
+  nlb: applicationStack.rtmpLoadBalancer,
+  headscaleInstance: applicationStack.headscaleInstance,
+  database: foundationStack.database,
+  cache: foundationStack.cache,
+  env: {
+    region: context.region,
+  },
+  description: `StreamrP2P Monitoring Dashboard - ${context.stageConfig.description}`,
+  tags: {
+    Project: 'streamr-p2p',
+    Stage: context.stage,
+    Region: context.region,
+    StackType: 'monitoring',
+  },
+});
+monitoringStack.addDependency(applicationStack);
+
 // Add global tags
 cdk.Tags.of(app).add('Project', 'streamr-p2p');
 cdk.Tags.of(app).add('ManagedBy', 'CDK');
@@ -99,3 +124,4 @@ console.log(`   Detailed Monitoring: ${context.stageConfig.monitoring.detailed ?
 console.log(`   GitHub OIDC Stack: ${githubOidcStack.stackName}`);
 console.log(`   Foundation Stack: ${foundationStack.stackName}`);
 console.log(`   Application Stack: ${applicationStack.stackName}`);
+console.log(`   Monitoring Stack: ${monitoringStack.stackName}`);
