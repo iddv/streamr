@@ -28,6 +28,7 @@ export interface ApplicationStackProps extends cdk.StackProps {
 export class ApplicationStack extends cdk.Stack {
   public readonly service: ecs.FargateService;
   public readonly loadBalancer: elbv2.ApplicationLoadBalancer;
+  public readonly rtmpLoadBalancer: elbv2.NetworkLoadBalancer;
   public readonly serviceSecurityGroup: ec2.SecurityGroup;
   public readonly taskDefinition: ecs.FargateTaskDefinition;
   public readonly headscaleInstance: ec2.Instance;
@@ -697,7 +698,7 @@ export class ApplicationStack extends cdk.Stack {
     
     // V2: Force replacement to add Elastic IP (AWS doesn't allow adding EIP to existing NLB)
     // NOTE: When using Elastic IP, we must use SubnetMappings instead of vpcSubnets
-    const rtmpLoadBalancer = new elbv2.NetworkLoadBalancer(this, 'RTMPLoadBalancerV2', {
+    this.rtmpLoadBalancer = new elbv2.NetworkLoadBalancer(this, 'RTMPLoadBalancerV2', {
       loadBalancerName: context.resourceName('rtmp-nlb-v2'),
       vpc,
       internetFacing: true,
@@ -705,7 +706,7 @@ export class ApplicationStack extends cdk.Stack {
     });
 
     // Associate Elastic IP with the NLB using subnet mapping (replaces vpcSubnets)
-    const cfnNlb = rtmpLoadBalancer.node.defaultChild as elbv2.CfnLoadBalancer;
+    const cfnNlb = this.rtmpLoadBalancer.node.defaultChild as elbv2.CfnLoadBalancer;
     cfnNlb.addPropertyOverride('SubnetMappings', [
       {
         SubnetId: primaryPublicSubnet.subnetId,
@@ -741,7 +742,7 @@ export class ApplicationStack extends cdk.Stack {
     }));
 
     // RTMP Listener
-    rtmpLoadBalancer.addListener('RTMPListener', {
+    this.rtmpLoadBalancer.addListener('RTMPListener', {
       port: 1935,
       protocol: elbv2.Protocol.TCP,
       defaultTargetGroups: [rtmpTargetGroup],
