@@ -139,10 +139,11 @@ jobs:
   # ---------------------------------------------------------------------------
   deploy:
     needs: [changes, unit-tests, go-tests]
-    # Run if deployable code changed, OR manual trigger. Skip for CI-only changes.
+    # Deploy only on push to main or manual trigger. NEVER on pull requests.
     # 'always()' ensures we evaluate even when skipped optional jobs didn't run.
     if: |
       always() &&
+      github.event_name != 'pull_request' &&
       !contains(needs.*.result, 'failure') &&
       (needs.changes.outputs.needs-deploy == 'true' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
