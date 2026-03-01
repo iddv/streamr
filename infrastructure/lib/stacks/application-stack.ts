@@ -329,7 +329,7 @@ export class ApplicationStack extends cdk.Stack {
       resources: [`arn:aws:secretsmanager:${context.region}:*:secret:${context.resourceName('db-credentials')}*`],
     }));
 
-    // Allow Headscale EC2 to read/write its own API key secret
+    // Allow Headscale EC2 to read/write its own API key, TLS cert, and sidecar key secrets
     headscaleRole.addToPolicy(new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
       actions: [
@@ -338,7 +338,11 @@ export class ApplicationStack extends cdk.Stack {
         'secretsmanager:CreateSecret',
         'secretsmanager:DescribeSecret',
       ],
-      resources: [`arn:aws:secretsmanager:${context.region}:*:secret:${context.resourceName('headscale-api-key')}*`],
+      resources: [
+        `arn:aws:secretsmanager:${context.region}:*:secret:${context.resourceName('headscale-api-key')}*`,
+        `arn:aws:secretsmanager:${context.region}:*:secret:${context.resourceName('headscale-tls-cert')}*`,
+        `arn:aws:secretsmanager:${context.region}:*:secret:${context.resourceName('tailscale-sidecar-key')}*`,
+      ],
     }));
 
     // User data script — installs Headscale, configures it, starts the service
@@ -485,12 +489,22 @@ export class ApplicationStack extends cdk.Stack {
       `aws secretsmanager create-secret --name ${context.resourceName('headscale-api-key')} --secret-string "$API_KEY" --region ${context.region} 2>/dev/null || \\`,
       `aws secretsmanager put-secret-value --secret-id ${context.resourceName('headscale-api-key')} --secret-string "$API_KEY" --region ${context.region}`,
       '',
-      'echo "Headscale setup complete. API key stored in Secrets Manager."',
+      '# Store self-signed TLS cert in Secrets Manager so Tailscale sidecar can trust it',
+      'TLS_CERT=$(cat /etc/headscale/tls.crt)',
+      `aws secretsmanager create-secret --name ${context.resourceName('headscale-tls-cert')} --secret-string "$TLS_CERT" --region ${context.region} 2>/dev/null || \\`,
+      `aws secretsmanager put-secret-value --secret-id ${context.resourceName('headscale-tls-cert')} --secret-string "$TLS_CERT" --region ${context.region}`,
+      '',
+      '# Create a reusable pre-auth key for the ECS Tailscale sidecar and store it',
+      'SIDECAR_KEY=$(/usr/local/bin/headscale preauthkeys create --user default --reusable --expiration 8760h 2>&1 | tail -1)',
+      `aws secretsmanager create-secret --name ${context.resourceName('tailscale-sidecar-key')} --secret-string "$SIDECAR_KEY" --region ${context.region} 2>/dev/null || \\`,
+      `aws secretsmanager put-secret-value --secret-id ${context.resourceName('tailscale-sidecar-key')} --secret-string "$SIDECAR_KEY" --region ${context.region}`,
+      '',
+      'echo "Headscale setup complete. API key, TLS cert, and sidecar key stored in Secrets Manager."',
       'echo "Public IP: ${PUBLIC_IP}"',
     );
 
     // Headscale EC2 Instance
-    this.headscaleInstance = new ec2.Instance(this, 'HeadscaleInstanceV3', {
+    this.headscaleInstance = new ec2.Instance(this, 'HeadscaleInstanceV4', {
       instanceName: context.resourceName('headscale'),
       instanceType: ec2.InstanceType.of(ec2.InstanceClass.T3, ec2.InstanceSize.MICRO),
       machineImage: ec2.MachineImage.latestAmazonLinux2023(),
@@ -508,16 +522,30 @@ export class ApplicationStack extends cdk.Stack {
 
     // Tag for easy identification
     cdk.Tags.of(this.headscaleInstance).add('Service', 'headscale');
-    cdk.Tags.of(this.headscaleInstance).add('DeployVersion', '3');
+    cdk.Tags.of(this.headscaleInstance).add('DeployVersion', '4');
 
     // Tailscale sidecar — coordinator joins the VPN mesh via EC2 Headscale
     // Needs TS_AUTHKEY to authenticate with Headscale so the proxy can reach VPN IPs (100.64.x.x)
     const tailscaleSidecarKeySecret = secretsmanager.Secret.fromSecretNameV2(
       this, 'TailscaleSidecarKeySecret', context.resourceName('tailscale-sidecar-key')
     );
+    // Self-signed TLS cert from Headscale EC2 — sidecar needs to trust it
+    const headscaleTlsCertSecret = secretsmanager.Secret.fromSecretNameV2(
+      this, 'HeadscaleTlsCertSecret', context.resourceName('headscale-tls-cert')
+    );
     const tailscaleContainer = this.taskDefinition.addContainer('tailscaled', {
       image: ecs.ContainerImage.fromRegistry('tailscale/tailscale:latest'),
       containerName: 'tailscaled',
+      // Override entrypoint to install the self-signed Headscale TLS cert
+      // before starting containerboot. The Tailscale image is Alpine-based.
+      entryPoint: ['sh', '-c'],
+      command: [
+        'if [ -n "$HEADSCALE_TLS_CERT" ]; then ' +
+        'echo "$HEADSCALE_TLS_CERT" > /usr/local/share/ca-certificates/headscale.crt && ' +
+        'update-ca-certificates 2>/dev/null; ' +
+        'fi; ' +
+        'exec /usr/local/bin/containerboot'
+      ],
       logging: ecs.LogDriver.awsLogs({
         streamPrefix: 'tailscaled',
         logGroup: logGroup,
@@ -533,6 +561,7 @@ export class ApplicationStack extends cdk.Stack {
       },
       secrets: {
         'TS_AUTHKEY': ecs.Secret.fromSecretsManager(tailscaleSidecarKeySecret),
+        'HEADSCALE_TLS_CERT': ecs.Secret.fromSecretsManager(headscaleTlsCertSecret),
       },
     });
 
@@ -548,13 +577,14 @@ export class ApplicationStack extends cdk.Stack {
     );
     coordinatorContainer.addSecret('HEADSCALE_API_KEY', ecs.Secret.fromSecretsManager(headscaleApiKeySecret));
 
-    // Allow coordinator task role to read the Headscale API key and sidecar auth key secrets
+    // Allow coordinator task role to read the Headscale API key, sidecar auth key, and TLS cert secrets
     taskRole.addToPolicy(new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
       actions: ['secretsmanager:GetSecretValue'],
       resources: [
         `arn:aws:secretsmanager:${context.region}:*:secret:${context.resourceName('headscale-api-key')}*`,
         `arn:aws:secretsmanager:${context.region}:*:secret:${context.resourceName('tailscale-sidecar-key')}*`,
+        `arn:aws:secretsmanager:${context.region}:*:secret:${context.resourceName('headscale-tls-cert')}*`,
       ],
     }));
 
