@@ -102,6 +102,11 @@ func main() {
 			}
 		}
 
+		// Clear stale tsnet state to avoid "Authkey is set; but state is NoState" errors
+		if err := mesh.ClearStaleState(log); err != nil {
+			log.WithField("operation", "mesh_join").WithError(err).Warn("Failed to clear stale tsnet state")
+		}
+
 		meshNode = mesh.NewMeshNode(log)
 		meshCtx, meshCancel := context.WithTimeout(context.Background(), 60*time.Second)
 		err = meshNode.Join(meshCtx, regResp.HeadscaleAuthKey, nodeID, headscaleURL)
@@ -148,6 +153,16 @@ func main() {
 	// 6. Start HLS server in goroutine (task 3.6 + 3.8)
 	server := hls.NewServer(buffer, cfg.ServePort, regResp.StreamID, cfg.MaxViewers, log)
 	go server.Start(ctx)
+
+	// 6b. Also serve HLS on VPN mesh listener so coordinator proxy can reach us
+	if meshNode != nil {
+		vpnLn, err := meshNode.Listen(cfg.ServePort)
+		if err != nil {
+			log.WithField("operation", "mesh_listen").WithError(err).Warn("Failed to listen on VPN mesh — proxy won't reach this node")
+		} else {
+			server.StartOnListener(ctx, vpnLn)
+		}
+	}
 
 	// 7. Start bandwidth reporter in goroutine (task 3.7)
 	reporter := bandwidth.NewReporter(

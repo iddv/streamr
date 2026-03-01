@@ -173,6 +173,7 @@
 | ~~Uncommitted local changes~~ | ~~Medium~~ | ✅ All changes committed and pushed |
 | Proxy can't reach nodes without VPN | ~~High~~ | ✅ Fixed in `f12f713` — Tailscale sidecar HTTP proxy (`TS_OUTBOUND_HTTP_PROXY_LISTEN=0.0.0.0:1055`) routes coordinator VPN traffic through sidecar. `proxy.py` uses separate `_get_vpn_client()`. Deployed as task def rev 36. Awaiting live E2E validation (9.14). |
 | SRS master playlist intermittently empty | Low | `#EXT-X-STREAM-INF` line present but variant URL sometimes missing. Go client retries every 2s, self-heals. SRS timing issue, not a blocker. |
+| Go node HLS playlist not live-compatible | Medium | `handlePlaylist` in `server.go` writes `#EXT-X-MEDIA-SEQUENCE:0` and dumps all buffered segments. HLS.js plays through them in ~1min, thinks stream ended, stops. Fix: sliding window (last N segments) with incrementing media sequence number as old segments rotate out. File: `node-client-go/internal/hls/server.go`. |
 
 ---
 
@@ -302,7 +303,32 @@ Friend Node (Go binary)                    Coordinator (ECS)
 | 9.12 | Test: Go client joins VPN mesh | ✅ | Go binary ran from external machine, registered with coordinator (got pre-auth key), joined Headscale VPN mesh via tsnet. Assigned IP `100.64.0.2`. Two bugs fixed: (1) coordinator returned private `HEADSCALE_URL` (10.0.0.134) — added `HEADSCALE_PUBLIC_URL` env var support in `auth_routes.py` + CDK + Go `-headscale-url` CLI flag; (2) VPN IP race condition in `vpn.go` — `TailscaleIPs` empty immediately after `srv.Start()`, added poll loop (500ms) waiting for IP assignment. Headscale admin shows node online. |
 | 9.13 | Test: Node reports vpn_ip in heartbeats | ✅ | After VPN join, heartbeat includes `vpn_ip=100.64.0.2`. Viewer routing API returns `source_type: friend_node, node_id: vpn-test-node-3`. Redis state updated with VPN IP. Headscale lists node as online. |
 | 9.14 | Test: Proxy routes to friend node over VPN | ✅ | Root cause chain (4 issues fixed): (1) Fargate no TUN device → sidecar HTTP proxy on :1055 (`f12f713`). (2) DERP required HTTPS → self-signed TLS on EC2 (`da76e0c`). (3) Sidecar x509 error → cert in Secrets Manager + Alpine CA store (`07dcfc3`). (4) httpx 0.25.x `proxy` kwarg → `proxies` dict (`fa1deeb`). Validated: heartbeat stores `vpn_ip=100.64.0.9` in Redis, proxy resolves VPN IP, routes through sidecar HTTP proxy (tailscaled log: `http: proxy error: context canceled` — confirms sidecar attempted VPN routing), falls back to SRS. Data-plane connectivity confirmed. |
-| 9.15 | Test: Full E2E — OBS → SRS → Go node → proxy → viewer | ⬜ | Complete loop with VPN mesh active |
+| 9.15 | Go node TLS cert for self-signed Headscale | ✅ | tsnet's `tlsdial` bypasses `SSL_CERT_FILE` and `http.DefaultTransport.RootCAs` — uses `x509.VerifyOptions{}` with nil Roots (system cert pool). Fix: `InstallCert()` writes cert to `/usr/local/share/ca-certificates/headscale.crt` and runs `update-ca-certificates`. Also added `ClearStaleState()` to auto-clear stale tsnet state on startup. Result: cert passes x509 validation, VPN mesh joined (IP `100.64.0.12`), HLS segments flowing. |
+| 9.16 | Test: Full E2E — OBS → SRS → Go node → proxy → viewer | ✅ | Full loop validated: OBS→SRS→Go node (VPN `100.64.0.12`, tsnet listener on :8080)→coordinator proxy (sidecar VPN)→viewer browser (HLS.js). Content served from friend node confirmed via network tab (`/api/v1/proxy/live-vpn-test/index.m3u8` → 200, `application/vnd.apple.mpegurl`). Known issue: playlist stops after ~1min because `#EXT-X-MEDIA-SEQUENCE:0` never increments — HLS.js thinks stream ended. Needs sliding window playlist fix (not architectural). |
+
+---
+
+## Phase 10: Scalable Viewer↔Node Architecture (Design Needed)
+
+> The current proxy-based approach (viewer → coordinator → sidecar VPN → node) routes ALL viewer traffic through the coordinator. This works for 5-10 friends testing but is a bottleneck at scale (100 viewers × 2Mbps = 200Mbps through one ECS task). Need to design a direct-connection architecture.
+
+**Architectural Patterns Considered:**
+
+| Pattern | Description | Scale | Complexity |
+|---------|-------------|-------|------------|
+| 1. Coordinator-proxied (current) | Every HLS segment flows through coordinator proxy → sidecar VPN → node | 5-10 viewers | Low (working now) |
+| 2. Direct node connection | Coordinator tells viewer "go to node's public URL." No proxy. | 1000s of viewers | Medium — nodes need public reachability |
+| 3. VPN for distribution, direct for viewers | VPN mesh for SRS→node and node→node. Viewers connect directly to nodes' public endpoints. | 1000s of viewers + nodes | Medium-High |
+
+**Pattern 3 is the target.** The VPN mesh solves NAT traversal between nodes (internal distribution). Viewers don't touch the VPN — they connect directly to nodes.
+
+**Open questions for direct viewer→node connectivity:**
+- Nodes behind NAT: reverse tunnel (WebSocket to coordinator, multiplex viewer requests back), or STUN/TURN, or subdomain-per-node with wildcard DNS
+- TLS for viewer connections (browsers increasingly require HTTPS for media)
+- Node discovery and health checking without proxy intermediary
+- Graceful failover when a node goes offline mid-stream
+
+**Status:** ⬜ Design phase — to be addressed after friends testing validates the core loop.
 
 ---
 

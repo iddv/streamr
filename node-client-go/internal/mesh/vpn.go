@@ -3,13 +3,13 @@ package mesh
 
 import (
 	"context"
-	"crypto/tls"
 	"crypto/x509"
 	"fmt"
 	"net"
-	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sync"
 	"time"
 
@@ -17,9 +17,10 @@ import (
 	"tailscale.com/tsnet"
 )
 
-// InstallCert writes a PEM certificate to the tsnet state directory and sets
-// SSL_CERT_FILE so the Go TLS stack trusts it. This is needed for self-signed
-// Headscale TLS certs. Must be called before Join().
+// InstallCert installs a PEM certificate into the SYSTEM CA trust store so
+// that tsnet's internal tlsdial (which uses x509.SystemCertPool via nil Roots)
+// will trust our self-signed Headscale cert. Requires root privileges.
+// Must be called before Join().
 func InstallCert(certPEM []byte, log *logrus.Entry) error {
 	if len(certPEM) == 0 {
 		return nil
@@ -31,33 +32,103 @@ func InstallCert(certPEM []byte, log *logrus.Entry) error {
 		return fmt.Errorf("failed to parse Headscale TLS certificate PEM")
 	}
 
+	// Detect OS and install to system CA store
+	switch runtime.GOOS {
+	case "linux":
+		if err := installCertLinux(certPEM, log); err != nil {
+			return err
+		}
+	case "darwin":
+		if err := installCertDarwin(certPEM, log); err != nil {
+			return err
+		}
+	default:
+		log.Warnf("System CA install not supported on %s, falling back to SSL_CERT_FILE", runtime.GOOS)
+		return installCertFallback(certPEM, log)
+	}
+
+	log.Info("Installed Headscale TLS certificate into system CA store")
+	return nil
+}
+
+// installCertLinux writes the cert to the system CA directory and runs update-ca-certificates.
+func installCertLinux(certPEM []byte, log *logrus.Entry) error {
+	// Debian/Ubuntu path
+	debianDir := "/usr/local/share/ca-certificates"
+	rhelDir := "/etc/pki/ca-trust/source/anchors"
+
+	var certPath string
+	var updateCmd string
+	var updateArgs []string
+
+	if _, err := os.Stat("/usr/sbin/update-ca-certificates"); err == nil {
+		// Debian/Ubuntu
+		if err := os.MkdirAll(debianDir, 0755); err != nil {
+			return fmt.Errorf("create CA dir: %w", err)
+		}
+		certPath = filepath.Join(debianDir, "headscale.crt")
+		updateCmd = "/usr/sbin/update-ca-certificates"
+	} else if _, err := os.Stat("/etc/pki/ca-trust/source/anchors"); err == nil {
+		// RHEL/CentOS/Fedora
+		certPath = filepath.Join(rhelDir, "headscale.pem")
+		updateCmd = "update-ca-trust"
+		updateArgs = []string{"extract"}
+	} else {
+		log.Warn("No system CA update tool found, falling back to SSL_CERT_FILE")
+		return installCertFallback(certPEM, log)
+	}
+
+	if err := os.WriteFile(certPath, certPEM, 0644); err != nil {
+		return fmt.Errorf("write cert to %s: %w", certPath, err)
+	}
+	log.WithField("cert_path", certPath).Info("Wrote cert to system CA directory")
+
+	cmd := exec.Command(updateCmd, updateArgs...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("run %s: %w", updateCmd, err)
+	}
+	log.Infof("Ran %s successfully", updateCmd)
+	return nil
+}
+
+// installCertDarwin adds the cert to the macOS system keychain.
+func installCertDarwin(certPEM []byte, log *logrus.Entry) error {
+	tmpFile := filepath.Join(os.TempDir(), "headscale.pem")
+	if err := os.WriteFile(tmpFile, certPEM, 0644); err != nil {
+		return fmt.Errorf("write temp cert: %w", err)
+	}
+	defer os.Remove(tmpFile)
+
+	cmd := exec.Command("security", "add-trusted-cert", "-d", "-r", "trustRoot",
+		"-k", "/Library/Keychains/System.keychain", tmpFile)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("security add-trusted-cert: %w", err)
+	}
+	log.Info("Added cert to macOS System keychain")
+	return nil
+}
+
+// installCertFallback uses SSL_CERT_FILE for unsupported platforms.
+func installCertFallback(certPEM []byte, log *logrus.Entry) error {
 	homeDir, _ := os.UserHomeDir()
 	certPath := filepath.Join(homeDir, ".streamr", "headscale-ca.pem")
 	if err := os.MkdirAll(filepath.Dir(certPath), 0700); err != nil {
 		return fmt.Errorf("create cert dir: %w", err)
 	}
 
-	// Build a combined PEM: system certs + our custom cert.
-	// Go's crypto/tls reads SSL_CERT_FILE as the *only* trust store,
-	// so we need to include system certs too.
-	sysCerts, err := x509.SystemCertPool()
-	if err != nil {
-		log.WithError(err).Warn("Could not load system cert pool, using custom cert only")
-	}
-
-	// Write system certs + custom cert to the file
+	// Combine system certs + custom cert since SSL_CERT_FILE replaces the pool
 	var combined []byte
-	if sysCerts != nil {
-		// Export system certs by reading the default cert file if it exists
-		for _, path := range []string{
-			"/etc/ssl/certs/ca-certificates.crt",
-			"/etc/pki/tls/certs/ca-bundle.crt",
-			"/etc/ssl/ca-bundle.pem",
-		} {
-			if data, err := os.ReadFile(path); err == nil {
-				combined = append(combined, data...)
-				break
-			}
+	for _, path := range []string{
+		"/etc/ssl/certs/ca-certificates.crt",
+		"/etc/pki/tls/certs/ca-bundle.crt",
+	} {
+		if data, err := os.ReadFile(path); err == nil {
+			combined = append(combined, data...)
+			break
 		}
 	}
 	combined = append(combined, certPEM...)
@@ -65,25 +136,21 @@ func InstallCert(certPEM []byte, log *logrus.Entry) error {
 	if err := os.WriteFile(certPath, combined, 0600); err != nil {
 		return fmt.Errorf("write cert file: %w", err)
 	}
-
 	os.Setenv("SSL_CERT_FILE", certPath)
-
-	// Also configure the default HTTP transport to trust the cert
-	// (tsnet uses net/http internally)
-	if transport, ok := http.DefaultTransport.(*http.Transport); ok {
-		if transport.TLSClientConfig == nil {
-			transport.TLSClientConfig = &tls.Config{}
-		}
-		certPool, _ := x509.SystemCertPool()
-		if certPool == nil {
-			certPool = x509.NewCertPool()
-		}
-		certPool.AppendCertsFromPEM(certPEM)
-		transport.TLSClientConfig.RootCAs = certPool
-	}
-
-	log.WithField("cert_path", certPath).Info("Installed Headscale TLS certificate")
+	log.WithField("cert_path", certPath).Infof("Fallback: set SSL_CERT_FILE")
 	return nil
+}
+
+// ClearStaleState removes old tsnet state to force a fresh login.
+// Call this before Join() when re-authenticating with a new auth key.
+func ClearStaleState(log *logrus.Entry) error {
+	homeDir, _ := os.UserHomeDir()
+	stateDir := filepath.Join(homeDir, ".streamr", "tailscale")
+	if _, err := os.Stat(stateDir); os.IsNotExist(err) {
+		return nil
+	}
+	log.WithField("state_dir", stateDir).Info("Clearing stale tsnet state for fresh login")
+	return os.RemoveAll(stateDir)
 }
 
 // MeshNode manages the embedded Tailscale/tsnet VPN connection.

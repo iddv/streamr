@@ -3,6 +3,7 @@ package hls
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"strings"
 	"sync/atomic"
@@ -20,6 +21,7 @@ type Server struct {
 	activeViewers  *atomic.Int32
 	maxViewers     int
 	httpServer     *http.Server
+	mux            *http.ServeMux
 	log            *logrus.Entry
 }
 
@@ -63,19 +65,11 @@ func (s *Server) CapacityPercent() int {
 
 // Start starts the HLS HTTP server. It blocks until the context is cancelled.
 func (s *Server) Start(ctx context.Context) {
-	mux := http.NewServeMux()
-
-	// Playlist endpoint: /live/{stream_id}/index.m3u8
-	playlistPattern := fmt.Sprintf("/live/%s/index.m3u8", s.streamID)
-	mux.HandleFunc(playlistPattern, s.viewerMiddleware(s.handlePlaylist))
-
-	// Segment endpoint: /live/{stream_id}/
-	segmentPattern := fmt.Sprintf("/live/%s/", s.streamID)
-	mux.HandleFunc(segmentPattern, s.viewerMiddleware(s.handleSegment))
+	s.buildMux()
 
 	s.httpServer = &http.Server{
 		Addr:    fmt.Sprintf(":%d", s.port),
-		Handler: mux,
+		Handler: s.mux,
 	}
 
 	s.log.WithFields(logrus.Fields{
@@ -96,6 +90,47 @@ func (s *Server) Start(ctx context.Context) {
 	if err := s.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		s.log.WithField("operation", "hls_server").WithError(err).Error("HLS server error")
 	}
+}
+
+// StartOnListener serves HLS on an existing net.Listener (e.g. tsnet VPN listener).
+// Runs in the background — does not block.
+func (s *Server) StartOnListener(ctx context.Context, ln net.Listener) {
+	s.buildMux()
+
+	vpnServer := &http.Server{Handler: s.mux}
+
+	s.log.WithFields(logrus.Fields{
+		"operation": "hls_server_vpn",
+		"addr":      ln.Addr().String(),
+		"stream_id": s.streamID,
+	}).Info("Starting HLS server on VPN listener")
+
+	go func() {
+		<-ctx.Done()
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		vpnServer.Shutdown(shutdownCtx)
+	}()
+
+	go func() {
+		if err := vpnServer.Serve(ln); err != nil && err != http.ErrServerClosed {
+			s.log.WithField("operation", "hls_server_vpn").WithError(err).Error("VPN HLS server error")
+		}
+	}()
+}
+
+// buildMux creates the shared HTTP mux if not already built.
+func (s *Server) buildMux() {
+	if s.mux != nil {
+		return
+	}
+	s.mux = http.NewServeMux()
+
+	playlistPattern := fmt.Sprintf("/live/%s/index.m3u8", s.streamID)
+	s.mux.HandleFunc(playlistPattern, s.viewerMiddleware(s.handlePlaylist))
+
+	segmentPattern := fmt.Sprintf("/live/%s/", s.streamID)
+	s.mux.HandleFunc(segmentPattern, s.viewerMiddleware(s.handleSegment))
 }
 
 // viewerMiddleware wraps a handler with concurrent viewer tracking and capacity limiting.
