@@ -265,6 +265,14 @@ jobs:
           echo "🏷️ Using image tag: $IMAGE_TAG"
           npx cdk deploy "$APPLICATION_STACK_NAME" --require-approval never --context stage=$STAGE --context imageTag=$IMAGE_TAG
 
+      - name: Deploy Monitoring Stack
+        working-directory: infrastructure
+        run: |
+          STAGE=${{ github.event.inputs.stage || 'beta' }}
+          MONITORING_STACK_NAME="streamr-p2p-$STAGE-${{ env.AWS_REGION }}-monitoring"
+          echo "📊 Deploying monitoring stack: $MONITORING_STACK_NAME"
+          npx cdk deploy "$MONITORING_STACK_NAME" --require-approval never --context stage=$STAGE
+
       - name: Output deployment info
         working-directory: infrastructure
         run: |
